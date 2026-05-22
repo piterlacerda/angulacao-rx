@@ -10,6 +10,28 @@ Repositorio publico do app:
 
 https://github.com/piterlacerda/angulacao-rx
 
+## Deploy na Vercel
+
+Projeto preparado para deploy estatico na Vercel.
+
+Importar este repositorio:
+
+https://github.com/piterlacerda/angulacao-rx
+
+Root directory: raiz do repositorio.
+
+Build command: vazio.
+
+Output directory: vazio.
+
+Dominio recomendado:
+
+angulacao.drpiterlacerda.com.br
+
+DNS esperado no Cloudflare:
+
+CNAME angulacao -> cname.vercel-dns.com
+
 ## Escopo do MVP
 
 - Carregar uma imagem local da radiografia.
