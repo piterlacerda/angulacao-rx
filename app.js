@@ -14,6 +14,8 @@ const colorSwatches = Array.from(document.querySelectorAll(".color-swatch"));
 const annotationTextInput = document.getElementById("annotationText");
 
 const measurementGuides = {
+  zoom: "Use zoom alto para posicionar pontos finos sobre cortex, centro articular e marcadores. A roda do mouse tambem aproxima e afasta.",
+  pan: "Use para deslocar a radiografia ampliada sem mover os pontos ja marcados.",
   calibrate: "Use um marcador radiografico de tamanho conhecido. A calibracao converte medidas lineares de pixels para milimetros.",
   annotation: "Use para registrar referencias visuais ou observacoes curtas sem misturar com os calculos.",
   fragment: "Contorne um segmento osseo e use rotacao para simular correcao. Funcao educativa; nao substitui planejamento cirurgico validado.",
@@ -28,6 +30,8 @@ const measurementGuides = {
 
 const toolSpecs = {
   select: { label: "Selecionar", points: 0, hint: "Arraste um ponto para ajustar a medida." },
+  zoom: { label: "Zoom", points: 0, hint: "Clique para aproximar. Use Alt+clique para afastar." },
+  pan: { label: "Mover", points: 0, hint: "Arraste a radiografia ampliada sem alterar os pontos." },
   angle3: { label: "Angulo 3 pontos", points: 3, hint: "Marque A, vertice, B." },
   lineAngle: { label: "Angulo entre linhas", points: 4, hint: "Marque dois pontos da primeira linha e dois da segunda." },
   ruler: { label: "Regua", points: 2, hint: "Marque dois pontos para medir distancia." },
@@ -53,6 +57,27 @@ let calibration = { pixelsPerMm: null, markerMm: null };
 let lineThickness = Number(lineThicknessInput.value);
 let currentColor = "#66d9c4";
 let redoStack = [];
+let renderState = null;
+
+function activeCtx() {
+  return renderState ? renderState.ctx : ctx;
+}
+
+function activeWidth() {
+  return renderState ? renderState.width : canvas.width;
+}
+
+function activeHeight() {
+  return renderState ? renderState.height : canvas.height;
+}
+
+function activeScale() {
+  return renderState ? renderState.scale : scale;
+}
+
+function activePan() {
+  return renderState ? renderState.pan : pan;
+}
 
 function resizeCanvas() {
   const rect = canvas.parentElement.getBoundingClientRect();
@@ -64,7 +89,9 @@ function resizeCanvas() {
 }
 
 function imageToScreen(point) {
-  return { x: point.x * scale + pan.x, y: point.y * scale + pan.y };
+  const localScale = activeScale();
+  const localPan = activePan();
+  return { x: point.x * localScale + localPan.x, y: point.y * localScale + localPan.y };
 }
 
 function screenToImage(point) {
@@ -162,99 +189,107 @@ function fitImage() {
 }
 
 function drawPoint(point, label, color) {
+  const target = activeCtx();
   const p = imageToScreen(point);
   const radius = 6 * window.devicePixelRatio;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
-  ctx.fillStyle = color || "#66d9c4";
-  ctx.fill();
-  ctx.lineWidth = 2 * window.devicePixelRatio;
-  ctx.strokeStyle = "#101412";
-  ctx.stroke();
-  ctx.fillStyle = "#f2f4ef";
-  ctx.font = 12 * window.devicePixelRatio + "px sans-serif";
-  ctx.fillText(label, p.x + 9 * window.devicePixelRatio, p.y - 9 * window.devicePixelRatio);
+  target.beginPath();
+  target.arc(p.x, p.y, radius, 0, Math.PI * 2);
+  target.fillStyle = color || "#66d9c4";
+  target.fill();
+  target.lineWidth = 2 * window.devicePixelRatio;
+  target.strokeStyle = "#101412";
+  target.stroke();
+  if (!label) return;
+  target.fillStyle = "#f2f4ef";
+  target.font = 12 * window.devicePixelRatio + "px sans-serif";
+  target.fillText(label, p.x + 9 * window.devicePixelRatio, p.y - 9 * window.devicePixelRatio);
 }
 
 function drawLine(a, b, color) {
+  const target = activeCtx();
   const p1 = imageToScreen(a);
   const p2 = imageToScreen(b);
-  ctx.beginPath();
-  ctx.moveTo(p1.x, p1.y);
-  ctx.lineTo(p2.x, p2.y);
-  ctx.lineWidth = lineThickness * window.devicePixelRatio;
-  ctx.strokeStyle = color || "#66d9c4";
-  ctx.stroke();
+  target.beginPath();
+  target.moveTo(p1.x, p1.y);
+  target.lineTo(p2.x, p2.y);
+  target.lineWidth = lineThickness * window.devicePixelRatio;
+  target.strokeStyle = color || "#66d9c4";
+  target.stroke();
 }
 
 function drawText(point, value, color) {
+  const target = activeCtx();
   const p = imageToScreen(point);
-  ctx.font = 14 * window.devicePixelRatio + "px sans-serif";
+  target.font = 14 * window.devicePixelRatio + "px sans-serif";
   const padding = 6 * window.devicePixelRatio;
-  const metrics = ctx.measureText(value);
+  const metrics = target.measureText(value);
   const width = metrics.width + padding * 2;
   const height = 24 * window.devicePixelRatio;
-  ctx.fillStyle = "rgba(16, 20, 18, 0.82)";
-  ctx.fillRect(p.x, p.y - height, width, height);
-  ctx.strokeStyle = color || "#66d9c4";
-  ctx.lineWidth = 1.5 * window.devicePixelRatio;
-  ctx.strokeRect(p.x, p.y - height, width, height);
-  ctx.fillStyle = color || "#f2f4ef";
-  ctx.fillText(value, p.x + padding, p.y - 8 * window.devicePixelRatio);
+  target.fillStyle = "rgba(16, 20, 18, 0.82)";
+  target.fillRect(p.x, p.y - height, width, height);
+  target.strokeStyle = color || "#66d9c4";
+  target.lineWidth = 1.5 * window.devicePixelRatio;
+  target.strokeRect(p.x, p.y - height, width, height);
+  target.fillStyle = color || "#f2f4ef";
+  target.fillText(value, p.x + padding, p.y - 8 * window.devicePixelRatio);
 }
 
 function drawPolygon(points, color) {
   if (!points.length) return;
+  const target = activeCtx();
   const first = imageToScreen(points[0]);
-  ctx.beginPath();
-  ctx.moveTo(first.x, first.y);
+  target.beginPath();
+  target.moveTo(first.x, first.y);
   points.slice(1).forEach(function(point) {
     const p = imageToScreen(point);
-    ctx.lineTo(p.x, p.y);
+    target.lineTo(p.x, p.y);
   });
-  ctx.closePath();
-  ctx.lineWidth = lineThickness * window.devicePixelRatio;
-  ctx.strokeStyle = color || "#66d9c4";
-  ctx.stroke();
+  target.closePath();
+  target.lineWidth = lineThickness * window.devicePixelRatio;
+  target.strokeStyle = color || "#66d9c4";
+  target.stroke();
 }
 
 function drawFragment(measure, color) {
+  const target = activeCtx();
   const pivot = measure.pivot || polygonCentroid(measure.points);
   const rotation = measure.rotation || 0;
   const rotated = measure.points.map(function(point) { return rotatePoint(point, pivot, rotation); });
 
   if (image && rotation !== 0) {
     const pivotScreen = imageToScreen(pivot);
-    ctx.save();
-    ctx.translate(pivotScreen.x, pivotScreen.y);
-    ctx.rotate(rotation * Math.PI / 180);
-    ctx.translate(-pivotScreen.x, -pivotScreen.y);
-    ctx.beginPath();
+    target.save();
+    target.translate(pivotScreen.x, pivotScreen.y);
+    target.rotate(rotation * Math.PI / 180);
+    target.translate(-pivotScreen.x, -pivotScreen.y);
+    target.beginPath();
     measure.points.forEach(function(point, index) {
       const p = imageToScreen(point);
-      if (index === 0) ctx.moveTo(p.x, p.y);
-      else ctx.lineTo(p.x, p.y);
+      if (index === 0) target.moveTo(p.x, p.y);
+      else target.lineTo(p.x, p.y);
     });
-    ctx.closePath();
-    ctx.clip();
-    ctx.globalAlpha = 0.92;
-    ctx.drawImage(image, pan.x, pan.y, image.width * scale, image.height * scale);
-    ctx.restore();
+    target.closePath();
+    target.clip();
+    target.globalAlpha = 0.92;
+    const localScale = activeScale();
+    const localPan = activePan();
+    target.drawImage(image, localPan.x, localPan.y, image.width * localScale, image.height * localScale);
+    target.restore();
   }
 
-  ctx.save();
-  ctx.globalAlpha = 0.2;
+  target.save();
+  target.globalAlpha = 0.2;
   const first = imageToScreen(rotated[0]);
-  ctx.beginPath();
-  ctx.moveTo(first.x, first.y);
+  target.beginPath();
+  target.moveTo(first.x, first.y);
   rotated.slice(1).forEach(function(point) {
     const p = imageToScreen(point);
-    ctx.lineTo(p.x, p.y);
+    target.lineTo(p.x, p.y);
   });
-  ctx.closePath();
-  ctx.fillStyle = color || "#66d9c4";
-  ctx.fill();
-  ctx.restore();
+  target.closePath();
+  target.fillStyle = color || "#66d9c4";
+  target.fill();
+  target.restore();
   drawPolygon(rotated, color);
   drawPoint(pivot, "P", color);
 }
@@ -290,10 +325,13 @@ function drawMeasurement(measure) {
 }
 
 function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const target = activeCtx();
+  target.clearRect(0, 0, activeWidth(), activeHeight());
   if (image) {
-    ctx.imageSmoothingEnabled = true;
-    ctx.drawImage(image, pan.x, pan.y, image.width * scale, image.height * scale);
+    const localScale = activeScale();
+    const localPan = activePan();
+    target.imageSmoothingEnabled = true;
+    target.drawImage(image, localPan.x, localPan.y, image.width * localScale, image.height * localScale);
   }
   measurements.forEach(drawMeasurement);
   pending.forEach(function(point, index) { drawPoint(point, String(index + 1), "#ef6f6c"); });
@@ -421,6 +459,15 @@ canvas.addEventListener("pointerdown", function(event) {
     lastMouse = screenPoint;
     return;
   }
+  if (activeTool === "pan") {
+    isPanning = true;
+    lastMouse = screenPoint;
+    return;
+  }
+  if (activeTool === "zoom") {
+    zoomAt(screenPoint, event.altKey ? 0.8 : 1.25);
+    return;
+  }
   if (activeTool === "select") {
     const hit = nearestPoint(screenPoint);
     draggingPoint = hit ? hit.point : null;
@@ -480,13 +527,18 @@ canvas.addEventListener("wheel", function(event) {
   const delta = event.deltaY > 0 ? 0.9 : 1.1;
   const rect = canvas.getBoundingClientRect();
   const mouse = { x: (event.clientX - rect.left) * window.devicePixelRatio, y: (event.clientY - rect.top) * window.devicePixelRatio };
-  const before = screenToImage(mouse);
-  scale = Math.max(0.08, Math.min(8, scale * delta));
-  pan.x = mouse.x - before.x * scale;
-  pan.y = mouse.y - before.y * scale;
+  zoomAt(mouse, delta);
+}, { passive: false });
+
+function zoomAt(screenPoint, factor) {
+  if (!image) return;
+  const before = screenToImage(screenPoint);
+  scale = Math.max(0.08, Math.min(16, scale * factor));
+  pan.x = screenPoint.x - before.x * scale;
+  pan.y = screenPoint.y - before.y * scale;
   updateZoomLabel();
   draw();
-}, { passive: false });
+}
 
 fileInput.addEventListener("change", function(event) {
   const file = event.target.files && event.target.files[0];
@@ -596,16 +648,32 @@ document.getElementById("exportBtn").addEventListener("click", function() {
   URL.revokeObjectURL(link.href);
 });
 
-document.getElementById("zoomIn").addEventListener("click", function() {
-  scale = Math.min(8, scale * 1.15);
-  updateZoomLabel();
+document.getElementById("saveImageBtn").addEventListener("click", function() {
+  if (!image) return;
+  const exportCanvas = document.createElement("canvas");
+  exportCanvas.width = image.width;
+  exportCanvas.height = image.height;
+  const exportCtx = exportCanvas.getContext("2d");
+  renderState = { ctx: exportCtx, width: exportCanvas.width, height: exportCanvas.height, scale: 1, pan: { x: 0, y: 0 } };
   draw();
+  renderState = null;
+  draw();
+  exportCanvas.toBlob(function(blob) {
+    if (!blob) return;
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "angulacao-rx-imagem.png";
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }, "image/png");
+});
+
+document.getElementById("zoomIn").addEventListener("click", function() {
+  zoomAt({ x: canvas.width / 2, y: canvas.height / 2 }, 1.15);
 });
 
 document.getElementById("zoomOut").addEventListener("click", function() {
-  scale = Math.max(0.08, scale / 1.15);
-  updateZoomLabel();
-  draw();
+  zoomAt({ x: canvas.width / 2, y: canvas.height / 2 }, 1 / 1.15);
 });
 
 document.getElementById("fitBtn").addEventListener("click", fitImage);

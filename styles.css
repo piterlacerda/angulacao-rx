@@ -205,6 +205,9 @@ button, input, select, textarea { font: inherit; }
   cursor: crosshair;
 }
 
+.tool[data-tool="zoom"].is-active ~ button,
+#viewer { touch-action: none; }
+
 .empty-state {
   position: absolute;
   inset: 0;

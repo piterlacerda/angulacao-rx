@@ -51,6 +51,8 @@ A angulacao.drpiterlacerda.com.br -> 76.76.21.21
 - Adicionar anotacoes curtas sobre a radiografia.
 - Ocultar, travar ou apagar medidas individualmente.
 - Contornar fragmentos e simular rotacao em torno de um pivo.
+- Usar zoom/mover para marcacao fina de pontos.
+- Salvar PNG limpo da area da radiografia com medidas e angulacoes.
 - Preencher painel MAP para organizar analise e planejamento.
 - Consultar guia rapido de como medir e para que serve cada medida principal.
 - Baixar as medidas em arquivo de texto legivel.
