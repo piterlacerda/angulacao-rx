@@ -4,6 +4,18 @@ Prototipo local para medir angulos e eixos em radiografias, com foco inicial em 
 
 ## Site publicado
 
+Vercel:
+
+https://angulacao-rx.vercel.app/
+
+Dominio customizado reservado na Vercel:
+
+https://angulacao.drpiterlacerda.com.br/
+
+Status do dominio customizado: pendente de DNS.
+
+GitHub Pages:
+
 https://piterlacerda.github.io/angulacao-rx/
 
 Repositorio publico do app:
@@ -12,25 +24,17 @@ https://github.com/piterlacerda/angulacao-rx
 
 ## Deploy na Vercel
 
-Projeto preparado para deploy estatico na Vercel.
-
-Importar este repositorio:
+Projeto publicado na Vercel e conectado ao repositorio:
 
 https://github.com/piterlacerda/angulacao-rx
 
-Root directory: raiz do repositorio.
-
-Build command: vazio.
-
-Output directory: vazio.
-
-Dominio recomendado:
+Dominio customizado:
 
 angulacao.drpiterlacerda.com.br
 
 DNS esperado no Cloudflare:
 
-CNAME angulacao -> cname.vercel-dns.com
+A angulacao.drpiterlacerda.com.br -> 76.76.21.21
 
 ## Escopo do MVP
 
