@@ -2,6 +2,14 @@
 
 Prototipo local para medir angulos e eixos em radiografias, com foco inicial em panoramica AP de membros inferiores.
 
+## Site publicado
+
+https://piterlacerda.github.io/angulacao-rx/
+
+Repositorio publico do app:
+
+https://github.com/piterlacerda/angulacao-rx
+
 ## Escopo do MVP
 
 - Carregar uma imagem local da radiografia.
