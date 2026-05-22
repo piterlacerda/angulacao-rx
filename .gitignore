@@ -1,0 +1,5 @@
+.venv/
+source/
+reference/
+screenshot.png
+*.log

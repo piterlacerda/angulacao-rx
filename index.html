@@ -23,13 +23,32 @@
           <button class="tool is-active" data-tool="select" title="Selecionar e mover pontos">Selecionar</button>
           <button class="tool" data-tool="angle3" title="Marca 3 pontos: vertice no segundo ponto">Angulo 3 pontos</button>
           <button class="tool" data-tool="lineAngle" title="Marca 4 pontos: duas linhas">Angulo entre linhas</button>
+          <button class="tool" data-tool="ruler" title="Marca 2 pontos para distancia">Regua</button>
+          <button class="tool" data-tool="calibrate" title="Marca 2 pontos sobre o marcador de escala">Calibrar escala</button>
           <button class="tool" data-tool="mechanicalAxis" title="Quadril, joelho, tornozelo">Eixo mecanico</button>
           <button class="tool" data-tool="ldfa" title="Centro femoral, centro do joelho, dois pontos da linha distal femoral">mLDFA</button>
           <button class="tool" data-tool="mpta" title="Centro do joelho, centro do tornozelo, dois pontos da linha tibial proximal">MPTA</button>
         </section>
 
+        <section class="control-section" aria-label="Configuracoes">
+          <label>
+            Marcador de escala
+            <span><input id="calibrationSize" type="number" min="1" step="0.1" value="25.4" /> mm</span>
+          </label>
+          <label>
+            Espessura da linha
+            <select id="lineThickness">
+              <option value="2">Fina</option>
+              <option value="4" selected>Media</option>
+              <option value="6">Grossa</option>
+            </select>
+          </label>
+          <div id="calibrationStatus" class="scale-status">Escala nao calibrada.</div>
+        </section>
+
         <section class="tool-section compact" aria-label="Acoes">
           <button id="undoBtn">Desfazer</button>
+          <button id="redoBtn">Refazer</button>
           <button id="clearBtn">Limpar</button>
           <button id="exportBtn">Baixar medidas</button>
         </section>
@@ -62,6 +81,13 @@
         <h1>Medidas</h1>
         <div id="pendingPoints" class="pending">Nenhum ponto pendente.</div>
         <div id="measurements" class="measurements"></div>
+        <section class="map-panel" aria-label="Planejamento MAP">
+          <h2>MAP</h2>
+          <label>MAD <input data-plan="mad" placeholder="ex.: 12 mm medial" /></label>
+          <label>Angulos articulares <textarea data-plan="angles" rows="3" placeholder="mLDFA, MPTA, LDTA..."></textarea></label>
+          <label>Osso/nível provável <input data-plan="bone" placeholder="ex.: tibia proximal" /></label>
+          <label>Apex / corte / correção <textarea data-plan="abc" rows="3" placeholder="Apex, osteotomia, tipo de correção"></textarea></label>
+        </section>
         <div class="clinical-note">
           As imagens ficam no navegador. Ferramenta de apoio para medicao; a interpretacao final depende de revisao medica.
         </div>

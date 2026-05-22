@@ -7,11 +7,16 @@ const toolHint = document.getElementById("toolHint");
 const pendingPoints = document.getElementById("pendingPoints");
 const measurementsEl = document.getElementById("measurements");
 const zoomLabel = document.getElementById("zoomLabel");
+const calibrationSizeInput = document.getElementById("calibrationSize");
+const calibrationStatus = document.getElementById("calibrationStatus");
+const lineThicknessInput = document.getElementById("lineThickness");
 
 const toolSpecs = {
   select: { label: "Selecionar", points: 0, hint: "Arraste um ponto para ajustar a medida." },
   angle3: { label: "Angulo 3 pontos", points: 3, hint: "Marque A, vertice, B." },
   lineAngle: { label: "Angulo entre linhas", points: 4, hint: "Marque dois pontos da primeira linha e dois da segunda." },
+  ruler: { label: "Regua", points: 2, hint: "Marque dois pontos para medir distancia." },
+  calibrate: { label: "Calibrar escala", points: 2, hint: "Marque as bordas do marcador e informe o tamanho real em mm." },
   mechanicalAxis: { label: "Eixo mecanico", points: 3, hint: "Marque centro femoral, centro do joelho e centro do tornozelo." },
   ldfa: { label: "mLDFA", points: 4, hint: "Marque centro femoral, centro do joelho e dois pontos da linha articular distal femoral." },
   mpta: { label: "MPTA", points: 4, hint: "Marque centro do joelho, centro do tornozelo e dois pontos da linha articular proximal tibial." }
@@ -26,6 +31,9 @@ let pan = { x: 0, y: 0 };
 let draggingPoint = null;
 let isPanning = false;
 let lastMouse = null;
+let calibration = { pixelsPerMm: null, markerMm: null };
+let lineThickness = Number(lineThicknessInput.value);
+let redoStack = [];
 
 function resizeCanvas() {
   const rect = canvas.parentElement.getBoundingClientRect();
@@ -67,13 +75,33 @@ function pointLineSignedDistance(point, a, b) {
   return denominator ? numerator / denominator : 0;
 }
 
+function pxToMm(value) {
+  return calibration.pixelsPerMm ? value / calibration.pixelsPerMm : value;
+}
+
+function lengthResult(valuePx) {
+  if (calibration.pixelsPerMm) return { value: pxToMm(valuePx), unit: "mm" };
+  return { value: valuePx, unit: "px", note: "Calibre a escala para converter em mm." };
+}
+
 function classifyMeasurement(tool, pts) {
+  if (tool === "calibrate") {
+    return { label: "Calibracao", value: distance(pts[0], pts[1]), unit: "px", note: calibration.pixelsPerMm ? calibration.markerMm + " mm = " + distance(pts[0], pts[1]).toFixed(1) + " px" : "Escala ainda nao aplicada." };
+  }
+  if (tool === "ruler") {
+    const result = lengthResult(distance(pts[0], pts[1]));
+    return { label: "Distancia", value: result.value, unit: result.unit, note: result.note };
+  }
   if (tool === "angle3") {
     const a = pts[0], vertex = pts[1], b = pts[2];
     return { label: "Angulo 3 pontos", value: angleBetweenVectors({ x: a.x - vertex.x, y: a.y - vertex.y }, { x: b.x - vertex.x, y: b.y - vertex.y }), unit: "graus" };
   }
   if (tool === "lineAngle") return { label: "Angulo entre linhas", value: lineAngle(pts[0], pts[1], pts[2], pts[3]), unit: "graus" };
-  if (tool === "mechanicalAxis") return { label: "MAD", value: pointLineSignedDistance(pts[1], pts[0], pts[2]), unit: "px", note: "Valor em pixels. Calibracao em mm entra na proxima versao." };
+  if (tool === "mechanicalAxis") {
+    const valuePx = pointLineSignedDistance(pts[1], pts[0], pts[2]);
+    const result = lengthResult(valuePx);
+    return { label: "MAD", value: result.value, unit: result.unit, note: result.note || "Sinal depende do lado marcado e deve ser interpretado clinicamente." };
+  }
   if (tool === "ldfa") return { label: "mLDFA", value: lineAngle(pts[0], pts[1], pts[2], pts[3]), unit: "graus", normal: "referencia usual: cerca de 87,5 +/- 2,5" };
   if (tool === "mpta") return { label: "MPTA", value: lineAngle(pts[0], pts[1], pts[2], pts[3]), unit: "graus", normal: "referencia usual: cerca de 87 +/- 2,5" };
   return { label: toolSpecs[tool].label, value: 0, unit: "" };
@@ -109,7 +137,7 @@ function drawLine(a, b, color) {
   ctx.beginPath();
   ctx.moveTo(p1.x, p1.y);
   ctx.lineTo(p2.x, p2.y);
-  ctx.lineWidth = 2 * window.devicePixelRatio;
+  ctx.lineWidth = lineThickness * window.devicePixelRatio;
   ctx.strokeStyle = color || "#66d9c4";
   ctx.stroke();
 }
@@ -123,6 +151,8 @@ function drawMeasurement(measure) {
   } else if (measure.tool === "lineAngle") {
     drawLine(pts[0], pts[1], color);
     drawLine(pts[2], pts[3], color);
+  } else if (measure.tool === "ruler" || measure.tool === "calibrate") {
+    drawLine(pts[0], pts[1], color);
   } else if (measure.tool === "mechanicalAxis") {
     drawLine(pts[0], pts[2], color);
     drawLine(pts[1], pts[2], "#7aa7ff");
@@ -155,6 +185,27 @@ function renderMeasurements() {
   });
 }
 
+function updateCalibrationStatus() {
+  if (!calibration.pixelsPerMm) {
+    calibrationStatus.textContent = "Escala nao calibrada.";
+    return;
+  }
+  calibrationStatus.textContent = "Escala: 1 mm = " + calibration.pixelsPerMm.toFixed(2) + " px.";
+}
+
+function recomputeCalibration() {
+  calibration = { pixelsPerMm: null, markerMm: null };
+  for (let index = measurements.length - 1; index >= 0; index -= 1) {
+    const measure = measurements[index];
+    if (measure.tool === "calibrate" && measure.markerMm > 0) {
+      const markerPx = distance(measure.points[0], measure.points[1]);
+      if (markerPx > 0) calibration = { pixelsPerMm: markerPx / measure.markerMm, markerMm: measure.markerMm };
+      break;
+    }
+  }
+  updateCalibrationStatus();
+}
+
 function updatePending() {
   const spec = toolSpecs[activeTool];
   pendingPoints.textContent = spec.points ? pending.length + "/" + spec.points + " pontos marcados." : "Nenhum ponto pendente.";
@@ -173,7 +224,14 @@ function setTool(tool) {
 }
 
 function finishMeasurement() {
-  measurements.push({ id: crypto.randomUUID(), tool: activeTool, points: pending.map(function(point) { return { x: point.x, y: point.y }; }) });
+  const measurement = { id: crypto.randomUUID(), tool: activeTool, points: pending.map(function(point) { return { x: point.x, y: point.y }; }) };
+  if (activeTool === "calibrate") {
+    const markerMm = Number(calibrationSizeInput.value);
+    if (markerMm > 0) measurement.markerMm = markerMm;
+  }
+  measurements.push(measurement);
+  recomputeCalibration();
+  redoStack = [];
   pending = [];
   renderMeasurements();
   updatePending();
@@ -186,7 +244,7 @@ function nearestPoint(screenPoint) {
     measure.points.forEach(function(point) {
       const screen = imageToScreen(point);
       const d = distance(screen, screenPoint);
-      if (d < 14 * window.devicePixelRatio && (!best || d < best.distance)) best = { point: point, distance: d };
+      if (d < 14 * window.devicePixelRatio && (!best || d < best.distance)) best = { point: point, measure: measure, distance: d };
     });
   });
   return best;
@@ -228,6 +286,7 @@ canvas.addEventListener("pointermove", function(event) {
   }
   if (draggingPoint) {
     Object.assign(draggingPoint, screenToImage(screenPoint));
+    recomputeCalibration();
     renderMeasurements();
     draw();
   }
@@ -263,6 +322,9 @@ fileInput.addEventListener("change", function(event) {
     emptyState.classList.add("is-hidden");
     measurements = [];
     pending = [];
+    redoStack = [];
+    calibration = { pixelsPerMm: null, markerMm: null };
+    updateCalibrationStatus();
     renderMeasurements();
     updatePending();
     fitImage();
@@ -277,7 +339,20 @@ document.querySelectorAll(".tool").forEach(function(button) {
 
 document.getElementById("undoBtn").addEventListener("click", function() {
   if (pending.length) pending.pop();
-  else measurements.pop();
+  else {
+    const removed = measurements.pop();
+    if (removed) redoStack.push(removed);
+  }
+  recomputeCalibration();
+  renderMeasurements();
+  updatePending();
+  draw();
+});
+
+document.getElementById("redoBtn").addEventListener("click", function() {
+  const restored = redoStack.pop();
+  if (restored) measurements.push(restored);
+  recomputeCalibration();
   renderMeasurements();
   updatePending();
   draw();
@@ -286,6 +361,8 @@ document.getElementById("undoBtn").addEventListener("click", function() {
 document.getElementById("clearBtn").addEventListener("click", function() {
   pending = [];
   measurements = [];
+  redoStack = [];
+  recomputeCalibration();
   renderMeasurements();
   updatePending();
   draw();
@@ -302,6 +379,15 @@ document.getElementById("exportBtn").addEventListener("click", function() {
     if (result.normal) lines.push("   Referencia: " + result.normal);
     if (result.note) lines.push("   Observacao: " + result.note);
   });
+  const planFields = Array.from(document.querySelectorAll("[data-plan]"));
+  const filledPlan = planFields.map(function(field) {
+    return { label: field.closest("label").childNodes[0].textContent.trim(), value: field.value.trim() };
+  }).filter(function(item) { return item.value; });
+  if (filledPlan.length) {
+    lines.push("");
+    lines.push("Planejamento MAP");
+    filledPlan.forEach(function(item) { lines.push(item.label + ": " + item.value); });
+  }
   lines.push("");
   lines.push("Ferramenta de apoio para medicao. Interpretacao final depende de revisao medica.");
   const blob = new Blob([lines.join("\n")], { type: "text/plain" });
@@ -326,6 +412,12 @@ document.getElementById("zoomOut").addEventListener("click", function() {
 
 document.getElementById("fitBtn").addEventListener("click", fitImage);
 
+lineThicknessInput.addEventListener("change", function() {
+  lineThickness = Number(lineThicknessInput.value);
+  draw();
+});
+
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 setTool("select");
+updateCalibrationStatus();

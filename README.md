@@ -42,13 +42,16 @@ A angulacao.drpiterlacerda.com.br -> 76.76.21.21
 - Marcar pontos anatomicos no canvas.
 - Medir angulo por 3 pontos.
 - Medir angulo entre duas linhas.
+- Calibrar escala por marcador conhecido.
+- Medir distancia com regua em px ou mm quando calibrado.
 - Medir eixo mecanico e desvio do eixo mecanico em relacao ao centro do joelho.
 - Medir mLDFA e MPTA por linhas de referencia.
+- Preencher painel MAP para organizar analise e planejamento.
 - Baixar as medidas em arquivo de texto legivel.
 
 ## Referencia tecnica inicial
 
-O livro do Paley foi usado como base de nomenclatura e estrutura de raciocinio, sem reproduzir texto, imagens ou tabelas protegidas.
+O livro do Paley e o guia publico do Bone Ninja foram usados como base de nomenclatura, estrutura de raciocinio e requisitos de fluxo, sem reproduzir texto, imagens ou tabelas protegidas.
 
 Primeira versao clinicamente util:
 
