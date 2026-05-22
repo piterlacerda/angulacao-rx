@@ -43,10 +43,13 @@ A angulacao.drpiterlacerda.com.br -> 76.76.21.21
 - Medir angulo por 3 pontos.
 - Medir angulo entre duas linhas.
 - Calibrar escala por marcador conhecido.
+- Ocultar a marcação visual da calibração após aplicar a escala.
 - Medir distancia com regua em px ou mm quando calibrado.
 - Medir eixo mecanico e desvio do eixo mecanico em relacao ao centro do joelho.
 - Medir mLDFA e MPTA por linhas de referencia.
+- Escolher cor e espessura das linhas para reduzir confusao visual.
 - Preencher painel MAP para organizar analise e planejamento.
+- Consultar guia rapido de como medir e para que serve cada medida principal.
 - Baixar as medidas em arquivo de texto legivel.
 
 ## Referencia tecnica inicial

@@ -43,6 +43,16 @@
               <option value="6">Grossa</option>
             </select>
           </label>
+          <label>
+            Cor da linha
+            <div class="color-row">
+              <button class="color-swatch is-active" data-color="#66d9c4" style="--swatch:#66d9c4" title="Verde"></button>
+              <button class="color-swatch" data-color="#f2c14e" style="--swatch:#f2c14e" title="Amarelo"></button>
+              <button class="color-swatch" data-color="#7aa7ff" style="--swatch:#7aa7ff" title="Azul"></button>
+              <button class="color-swatch" data-color="#ef6f6c" style="--swatch:#ef6f6c" title="Vermelho"></button>
+              <button class="color-swatch" data-color="#f2f4ef" style="--swatch:#f2f4ef" title="Branco"></button>
+            </div>
+          </label>
           <div id="calibrationStatus" class="scale-status">Escala nao calibrada.</div>
         </section>
 
@@ -83,10 +93,32 @@
         <div id="measurements" class="measurements"></div>
         <section class="map-panel" aria-label="Planejamento MAP">
           <h2>MAP</h2>
+          <div class="guide-note">
+            Sequencia sugerida: calibre a escala, meca o MAD, analise os angulos articulares e so depois escolha o nivel da deformidade.
+          </div>
           <label>MAD <input data-plan="mad" placeholder="ex.: 12 mm medial" /></label>
           <label>Angulos articulares <textarea data-plan="angles" rows="3" placeholder="mLDFA, MPTA, LDTA..."></textarea></label>
           <label>Osso/nível provável <input data-plan="bone" placeholder="ex.: tibia proximal" /></label>
           <label>Apex / corte / correção <textarea data-plan="abc" rows="3" placeholder="Apex, osteotomia, tipo de correção"></textarea></label>
+        </section>
+        <section class="angle-guide" aria-label="Guia de medidas">
+          <h2>Guia rapido</h2>
+          <details open>
+            <summary>MAD</summary>
+            <p>Trace o eixo mecanico do centro da cabeca femoral ao centro do tornozelo e observe onde ele cruza o joelho. Serve para quantificar desvio global em varo/valgo.</p>
+          </details>
+          <details>
+            <summary>mLDFA</summary>
+            <p>Use o eixo mecanico do femur e a linha articular distal femoral. Ajuda a separar deformidade femoral distal de deformidade tibial.</p>
+          </details>
+          <details>
+            <summary>MPTA</summary>
+            <p>Use o eixo mecanico da tibia e a linha articular proximal da tibia. Ajuda a identificar deformidade da tibia proximal no plano frontal.</p>
+          </details>
+          <details>
+            <summary>Regua</summary>
+            <p>Depois da calibracao, use para discrepancia de comprimento ou distancias auxiliares. Sem calibracao, o resultado fica em pixels.</p>
+          </details>
         </section>
         <div class="clinical-note">
           As imagens ficam no navegador. Ferramenta de apoio para medicao; a interpretacao final depende de revisao medica.

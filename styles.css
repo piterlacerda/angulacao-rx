@@ -119,6 +119,24 @@ button, input, select, textarea { font: inherit; }
   gap: 6px;
 }
 
+.color-row {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.color-swatch {
+  min-height: 30px;
+  border-radius: 6px;
+  background: var(--swatch);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.color-swatch.is-active {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
 .scale-status {
   color: var(--accent-2);
   font-size: 12px;
@@ -239,7 +257,8 @@ button, input, select, textarea { font: inherit; }
 .measure strong { color: var(--accent); }
 .measure b { color: var(--accent-2); }
 
-.map-panel {
+.map-panel,
+.angle-guide {
   display: grid;
   gap: 10px;
   margin-top: 16px;
@@ -249,7 +268,8 @@ button, input, select, textarea { font: inherit; }
   background: #1b1f1b;
 }
 
-.map-panel h2 {
+.map-panel h2,
+.angle-guide h2 {
   margin: 0;
   font-size: 16px;
 }
@@ -257,6 +277,25 @@ button, input, select, textarea { font: inherit; }
 .map-panel textarea {
   resize: vertical;
   min-height: 72px;
+}
+
+.guide-note,
+.angle-guide p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.angle-guide details {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.angle-guide summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 700;
 }
 
 .clinical-note {

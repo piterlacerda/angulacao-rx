@@ -10,6 +10,17 @@ const zoomLabel = document.getElementById("zoomLabel");
 const calibrationSizeInput = document.getElementById("calibrationSize");
 const calibrationStatus = document.getElementById("calibrationStatus");
 const lineThicknessInput = document.getElementById("lineThickness");
+const colorSwatches = Array.from(document.querySelectorAll(".color-swatch"));
+
+const measurementGuides = {
+  calibrate: "Use um marcador radiografico de tamanho conhecido. A calibracao converte medidas lineares de pixels para milimetros.",
+  ruler: "Serve para distancias lineares e discrepancia. Com escala calibrada, o resultado aparece em milimetros.",
+  angle3: "Use quando o angulo depende de um vertice anatomico claro. O segundo ponto e o vertice.",
+  lineAngle: "Use para comparar duas linhas independentes, como eixo e linha articular.",
+  mechanicalAxis: "Quantifica o desvio global do eixo mecanico no joelho. Primeiro passo do MAP.",
+  ldfa: "Avalia a orientacao distal do femur no plano frontal. Ajuda a localizar se a deformidade vem do femur distal.",
+  mpta: "Avalia a orientacao proximal da tibia no plano frontal. Ajuda a localizar deformidade da tibia proximal."
+};
 
 const toolSpecs = {
   select: { label: "Selecionar", points: 0, hint: "Arraste um ponto para ajustar a medida." },
@@ -33,6 +44,7 @@ let isPanning = false;
 let lastMouse = null;
 let calibration = { pixelsPerMm: null, markerMm: null };
 let lineThickness = Number(lineThicknessInput.value);
+let currentColor = "#66d9c4";
 let redoStack = [];
 
 function resizeCanvas() {
@@ -84,9 +96,10 @@ function lengthResult(valuePx) {
   return { value: valuePx, unit: "px", note: "Calibre a escala para converter em mm." };
 }
 
-function classifyMeasurement(tool, pts) {
+function classifyMeasurement(tool, pts, measurement) {
   if (tool === "calibrate") {
-    return { label: "Calibracao", value: distance(pts[0], pts[1]), unit: "px", note: calibration.pixelsPerMm ? calibration.markerMm + " mm = " + distance(pts[0], pts[1]).toFixed(1) + " px" : "Escala ainda nao aplicada." };
+    const markerMm = measurement && measurement.markerMm ? measurement.markerMm : calibration.markerMm;
+    return { label: "Calibracao", value: markerMm || distance(pts[0], pts[1]), unit: markerMm ? "mm" : "px", note: markerMm ? "Escala aplicada. Os pontos de calibracao ficam ocultos para nao poluir a radiografia." : "Escala ainda nao aplicada." };
   }
   if (tool === "ruler") {
     const result = lengthResult(distance(pts[0], pts[1]));
@@ -144,7 +157,8 @@ function drawLine(a, b, color) {
 
 function drawMeasurement(measure) {
   const pts = measure.points;
-  const color = measure.tool === "mechanicalAxis" ? "#f2c14e" : "#66d9c4";
+  if (measure.tool === "calibrate") return;
+  const color = measure.color || (measure.tool === "mechanicalAxis" ? "#f2c14e" : "#66d9c4");
   if (measure.tool === "angle3") {
     drawLine(pts[1], pts[0], color);
     drawLine(pts[1], pts[2], color);
@@ -176,10 +190,10 @@ function draw() {
 function renderMeasurements() {
   measurementsEl.innerHTML = "";
   measurements.forEach(function(measure, index) {
-    const result = classifyMeasurement(measure.tool, measure.points);
+    const result = classifyMeasurement(measure.tool, measure.points, measure);
     const article = document.createElement("article");
     article.className = "measure";
-    const details = [result.normal, result.note].filter(Boolean).join(" | ") || "Medida criada manualmente sobre a imagem.";
+    const details = [result.normal, result.note, measurementGuides[measure.tool]].filter(Boolean).join(" | ") || "Medida criada manualmente sobre a imagem.";
     article.innerHTML = "<header><strong>" + (index + 1) + ". " + result.label + "</strong><b>" + result.value.toFixed(1) + " " + result.unit + "</b></header><small>" + details + "</small>";
     measurementsEl.appendChild(article);
   });
@@ -224,7 +238,7 @@ function setTool(tool) {
 }
 
 function finishMeasurement() {
-  const measurement = { id: crypto.randomUUID(), tool: activeTool, points: pending.map(function(point) { return { x: point.x, y: point.y }; }) };
+  const measurement = { id: crypto.randomUUID(), tool: activeTool, color: currentColor, points: pending.map(function(point) { return { x: point.x, y: point.y }; }) };
   if (activeTool === "calibrate") {
     const markerMm = Number(calibrationSizeInput.value);
     if (markerMm > 0) measurement.markerMm = markerMm;
@@ -374,7 +388,7 @@ document.getElementById("exportBtn").addEventListener("click", function() {
     lines.push("Nenhuma medida registrada.");
   }
   measurements.forEach(function(measure, index) {
-    const result = classifyMeasurement(measure.tool, measure.points);
+    const result = classifyMeasurement(measure.tool, measure.points, measure);
     lines.push((index + 1) + ". " + result.label + ": " + result.value.toFixed(1) + " " + result.unit);
     if (result.normal) lines.push("   Referencia: " + result.normal);
     if (result.note) lines.push("   Observacao: " + result.note);
@@ -415,6 +429,13 @@ document.getElementById("fitBtn").addEventListener("click", fitImage);
 lineThicknessInput.addEventListener("change", function() {
   lineThickness = Number(lineThicknessInput.value);
   draw();
+});
+
+colorSwatches.forEach(function(button) {
+  button.addEventListener("click", function() {
+    currentColor = button.dataset.color;
+    colorSwatches.forEach(function(item) { item.classList.toggle("is-active", item === button); });
+  });
 });
 
 window.addEventListener("resize", resizeCanvas);
