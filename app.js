@@ -11,9 +11,11 @@ const calibrationSizeInput = document.getElementById("calibrationSize");
 const calibrationStatus = document.getElementById("calibrationStatus");
 const lineThicknessInput = document.getElementById("lineThickness");
 const colorSwatches = Array.from(document.querySelectorAll(".color-swatch"));
+const annotationTextInput = document.getElementById("annotationText");
 
 const measurementGuides = {
   calibrate: "Use um marcador radiografico de tamanho conhecido. A calibracao converte medidas lineares de pixels para milimetros.",
+  annotation: "Use para registrar referencias visuais ou observacoes curtas sem misturar com os calculos.",
   ruler: "Serve para distancias lineares e discrepancia. Com escala calibrada, o resultado aparece em milimetros.",
   angle3: "Use quando o angulo depende de um vertice anatomico claro. O segundo ponto e o vertice.",
   lineAngle: "Use para comparar duas linhas independentes, como eixo e linha articular.",
@@ -28,6 +30,7 @@ const toolSpecs = {
   lineAngle: { label: "Angulo entre linhas", points: 4, hint: "Marque dois pontos da primeira linha e dois da segunda." },
   ruler: { label: "Regua", points: 2, hint: "Marque dois pontos para medir distancia." },
   calibrate: { label: "Calibrar escala", points: 2, hint: "Marque as bordas do marcador e informe o tamanho real em mm." },
+  annotation: { label: "Anotacao", points: 1, hint: "Digite o texto na lateral e clique no ponto em que ele deve aparecer." },
   mechanicalAxis: { label: "Eixo mecanico", points: 3, hint: "Marque centro femoral, centro do joelho e centro do tornozelo." },
   ldfa: { label: "mLDFA", points: 4, hint: "Marque centro femoral, centro do joelho e dois pontos da linha articular distal femoral." },
   mpta: { label: "MPTA", points: 4, hint: "Marque centro do joelho, centro do tornozelo e dois pontos da linha articular proximal tibial." }
@@ -105,6 +108,9 @@ function classifyMeasurement(tool, pts, measurement) {
     const result = lengthResult(distance(pts[0], pts[1]));
     return { label: "Distancia", value: result.value, unit: result.unit, note: result.note };
   }
+  if (tool === "annotation") {
+    return { label: "Anotacao", value: 0, unit: "", note: measurement && measurement.text ? measurement.text : "Observacao" };
+  }
   if (tool === "angle3") {
     const a = pts[0], vertex = pts[1], b = pts[2];
     return { label: "Angulo 3 pontos", value: angleBetweenVectors({ x: a.x - vertex.x, y: a.y - vertex.y }, { x: b.x - vertex.x, y: b.y - vertex.y }), unit: "graus" };
@@ -155,7 +161,24 @@ function drawLine(a, b, color) {
   ctx.stroke();
 }
 
+function drawText(point, value, color) {
+  const p = imageToScreen(point);
+  ctx.font = 14 * window.devicePixelRatio + "px sans-serif";
+  const padding = 6 * window.devicePixelRatio;
+  const metrics = ctx.measureText(value);
+  const width = metrics.width + padding * 2;
+  const height = 24 * window.devicePixelRatio;
+  ctx.fillStyle = "rgba(16, 20, 18, 0.82)";
+  ctx.fillRect(p.x, p.y - height, width, height);
+  ctx.strokeStyle = color || "#66d9c4";
+  ctx.lineWidth = 1.5 * window.devicePixelRatio;
+  ctx.strokeRect(p.x, p.y - height, width, height);
+  ctx.fillStyle = color || "#f2f4ef";
+  ctx.fillText(value, p.x + padding, p.y - 8 * window.devicePixelRatio);
+}
+
 function drawMeasurement(measure) {
+  if (measure.hidden) return;
   const pts = measure.points;
   if (measure.tool === "calibrate") return;
   const color = measure.color || (measure.tool === "mechanicalAxis" ? "#f2c14e" : "#66d9c4");
@@ -167,6 +190,10 @@ function drawMeasurement(measure) {
     drawLine(pts[2], pts[3], color);
   } else if (measure.tool === "ruler" || measure.tool === "calibrate") {
     drawLine(pts[0], pts[1], color);
+  } else if (measure.tool === "annotation") {
+    drawText(pts[0], measure.text || "Observacao", color);
+    drawPoint(pts[0], "", color);
+    return;
   } else if (measure.tool === "mechanicalAxis") {
     drawLine(pts[0], pts[2], color);
     drawLine(pts[1], pts[2], "#7aa7ff");
@@ -192,9 +219,10 @@ function renderMeasurements() {
   measurements.forEach(function(measure, index) {
     const result = classifyMeasurement(measure.tool, measure.points, measure);
     const article = document.createElement("article");
-    article.className = "measure";
+    article.className = "measure" + (measure.hidden ? " is-hidden" : "");
     const details = [result.normal, result.note, measurementGuides[measure.tool]].filter(Boolean).join(" | ") || "Medida criada manualmente sobre a imagem.";
-    article.innerHTML = "<header><strong>" + (index + 1) + ". " + result.label + "</strong><b>" + result.value.toFixed(1) + " " + result.unit + "</b></header><small>" + details + "</small>";
+    const valueText = measure.tool === "annotation" ? "" : result.value.toFixed(1) + " " + result.unit;
+    article.innerHTML = "<header><strong>" + (index + 1) + ". " + result.label + "</strong><b>" + valueText + "</b></header><small>" + details + "</small><div class=\"measure-actions\"><button data-action=\"toggle\" data-id=\"" + measure.id + "\">" + (measure.hidden ? "Mostrar" : "Ocultar") + "</button><button data-action=\"lock\" data-id=\"" + measure.id + "\">" + (measure.locked ? "Destravar" : "Travar") + "</button><button data-action=\"delete\" data-id=\"" + measure.id + "\">Apagar</button></div>";
     measurementsEl.appendChild(article);
   });
 }
@@ -238,10 +266,13 @@ function setTool(tool) {
 }
 
 function finishMeasurement() {
-  const measurement = { id: crypto.randomUUID(), tool: activeTool, color: currentColor, points: pending.map(function(point) { return { x: point.x, y: point.y }; }) };
+  const measurement = { id: crypto.randomUUID(), tool: activeTool, color: currentColor, hidden: false, locked: false, points: pending.map(function(point) { return { x: point.x, y: point.y }; }) };
   if (activeTool === "calibrate") {
     const markerMm = Number(calibrationSizeInput.value);
     if (markerMm > 0) measurement.markerMm = markerMm;
+  }
+  if (activeTool === "annotation") {
+    measurement.text = annotationTextInput.value.trim() || "Observacao";
   }
   measurements.push(measurement);
   recomputeCalibration();
@@ -255,6 +286,7 @@ function finishMeasurement() {
 function nearestPoint(screenPoint) {
   let best = null;
   measurements.forEach(function(measure) {
+    if (measure.hidden || measure.locked || measure.tool === "calibrate") return;
     measure.points.forEach(function(point) {
       const screen = imageToScreen(point);
       const d = distance(screen, screenPoint);
@@ -382,6 +414,22 @@ document.getElementById("clearBtn").addEventListener("click", function() {
   draw();
 });
 
+measurementsEl.addEventListener("click", function(event) {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const measure = measurements.find(function(item) { return item.id === button.dataset.id; });
+  if (!measure) return;
+  if (button.dataset.action === "toggle") measure.hidden = !measure.hidden;
+  if (button.dataset.action === "lock") measure.locked = !measure.locked;
+  if (button.dataset.action === "delete") {
+    measurements = measurements.filter(function(item) { return item.id !== measure.id; });
+    redoStack = [];
+  }
+  recomputeCalibration();
+  renderMeasurements();
+  draw();
+});
+
 document.getElementById("exportBtn").addEventListener("click", function() {
   const lines = ["Angulacao RX - medidas", ""];
   if (!measurements.length) {
@@ -389,7 +437,9 @@ document.getElementById("exportBtn").addEventListener("click", function() {
   }
   measurements.forEach(function(measure, index) {
     const result = classifyMeasurement(measure.tool, measure.points, measure);
-    lines.push((index + 1) + ". " + result.label + ": " + result.value.toFixed(1) + " " + result.unit);
+    const hiddenLabel = measure.hidden ? " (oculta)" : "";
+    if (measure.tool === "annotation") lines.push((index + 1) + ". Anotacao" + hiddenLabel + ": " + (measure.text || ""));
+    else lines.push((index + 1) + ". " + result.label + hiddenLabel + ": " + result.value.toFixed(1) + " " + result.unit);
     if (result.normal) lines.push("   Referencia: " + result.normal);
     if (result.note) lines.push("   Observacao: " + result.note);
   });

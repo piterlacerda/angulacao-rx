@@ -25,6 +25,7 @@
           <button class="tool" data-tool="lineAngle" title="Marca 4 pontos: duas linhas">Angulo entre linhas</button>
           <button class="tool" data-tool="ruler" title="Marca 2 pontos para distancia">Regua</button>
           <button class="tool" data-tool="calibrate" title="Marca 2 pontos sobre o marcador de escala">Calibrar escala</button>
+          <button class="tool" data-tool="annotation" title="Adicionar texto na imagem">Anotacao</button>
           <button class="tool" data-tool="mechanicalAxis" title="Quadril, joelho, tornozelo">Eixo mecanico</button>
           <button class="tool" data-tool="ldfa" title="Centro femoral, centro do joelho, dois pontos da linha distal femoral">mLDFA</button>
           <button class="tool" data-tool="mpta" title="Centro do joelho, centro do tornozelo, dois pontos da linha tibial proximal">MPTA</button>
@@ -52,6 +53,10 @@
               <button class="color-swatch" data-color="#ef6f6c" style="--swatch:#ef6f6c" title="Vermelho"></button>
               <button class="color-swatch" data-color="#f2f4ef" style="--swatch:#f2f4ef" title="Branco"></button>
             </div>
+          </label>
+          <label>
+            Texto da anotacao
+            <input id="annotationText" value="Observacao" maxlength="80" />
           </label>
           <div id="calibrationStatus" class="scale-status">Escala nao calibrada.</div>
         </section>

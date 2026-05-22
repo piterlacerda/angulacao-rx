@@ -247,11 +247,27 @@ button, input, select, textarea { font: inherit; }
   background: var(--panel-2);
 }
 
+.measure.is-hidden {
+  opacity: 0.58;
+}
+
 .measure header {
   display: flex;
   justify-content: space-between;
   gap: 10px;
   margin-bottom: 8px;
+}
+
+.measure-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.measure-actions button {
+  min-height: 30px;
+  font-size: 12px;
 }
 
 .measure strong { color: var(--accent); }

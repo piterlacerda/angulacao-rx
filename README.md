@@ -48,6 +48,8 @@ A angulacao.drpiterlacerda.com.br -> 76.76.21.21
 - Medir eixo mecanico e desvio do eixo mecanico em relacao ao centro do joelho.
 - Medir mLDFA e MPTA por linhas de referencia.
 - Escolher cor e espessura das linhas para reduzir confusao visual.
+- Adicionar anotacoes curtas sobre a radiografia.
+- Ocultar, travar ou apagar medidas individualmente.
 - Preencher painel MAP para organizar analise e planejamento.
 - Consultar guia rapido de como medir e para que serve cada medida principal.
 - Baixar as medidas em arquivo de texto legivel.
