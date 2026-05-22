@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Angulacao RX</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <strong>Angulacao RX</strong>
+          <span>Planejamento ortopedico beta</span>
+        </div>
+
+        <label class="file-button">
+          Abrir radiografia
+          <input id="fileInput" type="file" accept="image/*" />
+        </label>
+
+        <section class="tool-section" aria-label="Ferramentas">
+          <button class="tool is-active" data-tool="select" title="Selecionar e mover pontos">Selecionar</button>
+          <button class="tool" data-tool="angle3" title="Marca 3 pontos: vertice no segundo ponto">Angulo 3 pontos</button>
+          <button class="tool" data-tool="lineAngle" title="Marca 4 pontos: duas linhas">Angulo entre linhas</button>
+          <button class="tool" data-tool="mechanicalAxis" title="Quadril, joelho, tornozelo">Eixo mecanico</button>
+          <button class="tool" data-tool="ldfa" title="Centro femoral, centro do joelho, dois pontos da linha distal femoral">mLDFA</button>
+          <button class="tool" data-tool="mpta" title="Centro do joelho, centro do tornozelo, dois pontos da linha tibial proximal">MPTA</button>
+        </section>
+
+        <section class="tool-section compact" aria-label="Acoes">
+          <button id="undoBtn">Desfazer</button>
+          <button id="clearBtn">Limpar</button>
+          <button id="exportBtn">Exportar JSON</button>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <strong id="activeTool">Selecionar</strong>
+            <span id="toolHint">Carregue uma imagem e marque os pontos.</span>
+          </div>
+          <div class="zoom-controls">
+            <button id="zoomOut" title="Reduzir zoom">-</button>
+            <span id="zoomLabel">100%</span>
+            <button id="zoomIn" title="Aumentar zoom">+</button>
+            <button id="fitBtn" title="Ajustar a imagem">Ajustar</button>
+          </div>
+        </header>
+
+        <div class="canvas-wrap" id="canvasWrap">
+          <canvas id="viewer" width="1280" height="820"></canvas>
+          <div class="empty-state" id="emptyState">
+            <strong>Carregue uma radiografia</strong>
+            <span>Use imagem exportada do PACS ou captura em PNG/JPEG.</span>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <h1>Medidas</h1>
+        <div id="pendingPoints" class="pending">Nenhum ponto pendente.</div>
+        <div id="measurements" class="measurements"></div>
+        <div class="clinical-note">
+          As imagens ficam no navegador. Ferramenta de apoio para medicao; a interpretacao final depende de revisao medica.
+        </div>
+      </aside>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
