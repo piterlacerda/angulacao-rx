@@ -16,6 +16,8 @@ const annotationTextInput = document.getElementById("annotationText");
 const measurementGuides = {
   calibrate: "Use um marcador radiografico de tamanho conhecido. A calibracao converte medidas lineares de pixels para milimetros.",
   annotation: "Use para registrar referencias visuais ou observacoes curtas sem misturar com os calculos.",
+  fragment: "Contorne um segmento osseo e use rotacao para simular correcao. Funcao educativa; nao substitui planejamento cirurgico validado.",
+  pivot: "Define o ponto em torno do qual o fragmento mais recente sera rotacionado.",
   ruler: "Serve para distancias lineares e discrepancia. Com escala calibrada, o resultado aparece em milimetros.",
   angle3: "Use quando o angulo depende de um vertice anatomico claro. O segundo ponto e o vertice.",
   lineAngle: "Use para comparar duas linhas independentes, como eixo e linha articular.",
@@ -31,6 +33,8 @@ const toolSpecs = {
   ruler: { label: "Regua", points: 2, hint: "Marque dois pontos para medir distancia." },
   calibrate: { label: "Calibrar escala", points: 2, hint: "Marque as bordas do marcador e informe o tamanho real em mm." },
   annotation: { label: "Anotacao", points: 1, hint: "Digite o texto na lateral e clique no ponto em que ele deve aparecer." },
+  fragment: { label: "Fragmento", points: null, hint: "Clique ao redor do osso. Depois use Fechar fragmento." },
+  pivot: { label: "Pivo", points: 1, hint: "Clique onde o ultimo fragmento deve girar." },
   mechanicalAxis: { label: "Eixo mecanico", points: 3, hint: "Marque centro femoral, centro do joelho e centro do tornozelo." },
   ldfa: { label: "mLDFA", points: 4, hint: "Marque centro femoral, centro do joelho e dois pontos da linha articular distal femoral." },
   mpta: { label: "MPTA", points: 4, hint: "Marque centro do joelho, centro do tornozelo e dois pontos da linha articular proximal tibial." }
@@ -69,6 +73,25 @@ function screenToImage(point) {
 
 function distance(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function polygonCentroid(points) {
+  const total = points.reduce(function(acc, point) {
+    return { x: acc.x + point.x, y: acc.y + point.y };
+  }, { x: 0, y: 0 });
+  return { x: total.x / points.length, y: total.y / points.length };
+}
+
+function rotatePoint(point, pivot, degrees) {
+  const rad = degrees * Math.PI / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = point.x - pivot.x;
+  const dy = point.y - pivot.y;
+  return {
+    x: pivot.x + dx * cos - dy * sin,
+    y: pivot.y + dx * sin + dy * cos
+  };
 }
 
 function angleBetweenVectors(v1, v2) {
@@ -110,6 +133,9 @@ function classifyMeasurement(tool, pts, measurement) {
   }
   if (tool === "annotation") {
     return { label: "Anotacao", value: 0, unit: "", note: measurement && measurement.text ? measurement.text : "Observacao" };
+  }
+  if (tool === "fragment") {
+    return { label: "Fragmento", value: measurement && measurement.rotation ? measurement.rotation : 0, unit: "graus", note: "Rotacao simulada do fragmento em torno do pivo." };
   }
   if (tool === "angle3") {
     const a = pts[0], vertex = pts[1], b = pts[2];
@@ -177,6 +203,62 @@ function drawText(point, value, color) {
   ctx.fillText(value, p.x + padding, p.y - 8 * window.devicePixelRatio);
 }
 
+function drawPolygon(points, color) {
+  if (!points.length) return;
+  const first = imageToScreen(points[0]);
+  ctx.beginPath();
+  ctx.moveTo(first.x, first.y);
+  points.slice(1).forEach(function(point) {
+    const p = imageToScreen(point);
+    ctx.lineTo(p.x, p.y);
+  });
+  ctx.closePath();
+  ctx.lineWidth = lineThickness * window.devicePixelRatio;
+  ctx.strokeStyle = color || "#66d9c4";
+  ctx.stroke();
+}
+
+function drawFragment(measure, color) {
+  const pivot = measure.pivot || polygonCentroid(measure.points);
+  const rotation = measure.rotation || 0;
+  const rotated = measure.points.map(function(point) { return rotatePoint(point, pivot, rotation); });
+
+  if (image && rotation !== 0) {
+    const pivotScreen = imageToScreen(pivot);
+    ctx.save();
+    ctx.translate(pivotScreen.x, pivotScreen.y);
+    ctx.rotate(rotation * Math.PI / 180);
+    ctx.translate(-pivotScreen.x, -pivotScreen.y);
+    ctx.beginPath();
+    measure.points.forEach(function(point, index) {
+      const p = imageToScreen(point);
+      if (index === 0) ctx.moveTo(p.x, p.y);
+      else ctx.lineTo(p.x, p.y);
+    });
+    ctx.closePath();
+    ctx.clip();
+    ctx.globalAlpha = 0.92;
+    ctx.drawImage(image, pan.x, pan.y, image.width * scale, image.height * scale);
+    ctx.restore();
+  }
+
+  ctx.save();
+  ctx.globalAlpha = 0.2;
+  const first = imageToScreen(rotated[0]);
+  ctx.beginPath();
+  ctx.moveTo(first.x, first.y);
+  rotated.slice(1).forEach(function(point) {
+    const p = imageToScreen(point);
+    ctx.lineTo(p.x, p.y);
+  });
+  ctx.closePath();
+  ctx.fillStyle = color || "#66d9c4";
+  ctx.fill();
+  ctx.restore();
+  drawPolygon(rotated, color);
+  drawPoint(pivot, "P", color);
+}
+
 function drawMeasurement(measure) {
   if (measure.hidden) return;
   const pts = measure.points;
@@ -193,6 +275,9 @@ function drawMeasurement(measure) {
   } else if (measure.tool === "annotation") {
     drawText(pts[0], measure.text || "Observacao", color);
     drawPoint(pts[0], "", color);
+    return;
+  } else if (measure.tool === "fragment") {
+    drawFragment(measure, color);
     return;
   } else if (measure.tool === "mechanicalAxis") {
     drawLine(pts[0], pts[2], color);
@@ -222,7 +307,8 @@ function renderMeasurements() {
     article.className = "measure" + (measure.hidden ? " is-hidden" : "");
     const details = [result.normal, result.note, measurementGuides[measure.tool]].filter(Boolean).join(" | ") || "Medida criada manualmente sobre a imagem.";
     const valueText = measure.tool === "annotation" ? "" : result.value.toFixed(1) + " " + result.unit;
-    article.innerHTML = "<header><strong>" + (index + 1) + ". " + result.label + "</strong><b>" + valueText + "</b></header><small>" + details + "</small><div class=\"measure-actions\"><button data-action=\"toggle\" data-id=\"" + measure.id + "\">" + (measure.hidden ? "Mostrar" : "Ocultar") + "</button><button data-action=\"lock\" data-id=\"" + measure.id + "\">" + (measure.locked ? "Destravar" : "Travar") + "</button><button data-action=\"delete\" data-id=\"" + measure.id + "\">Apagar</button></div>";
+    const fragmentActions = measure.tool === "fragment" ? "<div class=\"fragment-actions\"><button data-action=\"rotateLeft\" data-id=\"" + measure.id + "\">-5</button><button data-action=\"rotateReset\" data-id=\"" + measure.id + "\">0</button><button data-action=\"rotateRight\" data-id=\"" + measure.id + "\">+5</button></div>" : "";
+    article.innerHTML = "<header><strong>" + (index + 1) + ". " + result.label + "</strong><b>" + valueText + "</b></header><small>" + details + "</small><div class=\"measure-actions\"><button data-action=\"toggle\" data-id=\"" + measure.id + "\">" + (measure.hidden ? "Mostrar" : "Ocultar") + "</button><button data-action=\"lock\" data-id=\"" + measure.id + "\">" + (measure.locked ? "Destravar" : "Travar") + "</button><button data-action=\"delete\" data-id=\"" + measure.id + "\">Apagar</button></div>" + fragmentActions;
     measurementsEl.appendChild(article);
   });
 }
@@ -250,6 +336,10 @@ function recomputeCalibration() {
 
 function updatePending() {
   const spec = toolSpecs[activeTool];
+  if (activeTool === "fragment") {
+    pendingPoints.textContent = pending.length ? pending.length + " pontos no contorno. Use Fechar fragmento." : "Clique ao redor do fragmento.";
+    return;
+  }
   pendingPoints.textContent = spec.points ? pending.length + "/" + spec.points + " pontos marcados." : "Nenhum ponto pendente.";
 }
 
@@ -276,6 +366,29 @@ function finishMeasurement() {
   }
   measurements.push(measurement);
   recomputeCalibration();
+  redoStack = [];
+  pending = [];
+  renderMeasurements();
+  updatePending();
+  draw();
+}
+
+function finishFragment() {
+  if (pending.length < 3) {
+    pendingPoints.textContent = "Marque pelo menos 3 pontos para fechar o fragmento.";
+    return;
+  }
+  const points = pending.map(function(point) { return { x: point.x, y: point.y }; });
+  measurements.push({
+    id: crypto.randomUUID(),
+    tool: "fragment",
+    color: currentColor,
+    hidden: false,
+    locked: false,
+    points: points,
+    pivot: polygonCentroid(points),
+    rotation: 0
+  });
   redoStack = [];
   pending = [];
   renderMeasurements();
@@ -314,6 +427,23 @@ canvas.addEventListener("pointerdown", function(event) {
     return;
   }
   if (!image) return;
+  if (activeTool === "fragment") {
+    pending.push(screenToImage(screenPoint));
+    updatePending();
+    draw();
+    return;
+  }
+  if (activeTool === "pivot") {
+    const fragment = measurements.slice().reverse().find(function(item) { return item.tool === "fragment" && !item.hidden && !item.locked; });
+    if (fragment) {
+      fragment.pivot = screenToImage(screenPoint);
+      renderMeasurements();
+      draw();
+    } else {
+      pendingPoints.textContent = "Nenhum fragmento disponivel para receber pivo.";
+    }
+    return;
+  }
   pending.push(screenToImage(screenPoint));
   if (pending.length === toolSpecs[activeTool].points) finishMeasurement();
   updatePending();
@@ -425,6 +555,9 @@ measurementsEl.addEventListener("click", function(event) {
     measurements = measurements.filter(function(item) { return item.id !== measure.id; });
     redoStack = [];
   }
+  if (button.dataset.action === "rotateLeft") measure.rotation = (measure.rotation || 0) - 5;
+  if (button.dataset.action === "rotateRight") measure.rotation = (measure.rotation || 0) + 5;
+  if (button.dataset.action === "rotateReset") measure.rotation = 0;
   recomputeCalibration();
   renderMeasurements();
   draw();
@@ -439,6 +572,7 @@ document.getElementById("exportBtn").addEventListener("click", function() {
     const result = classifyMeasurement(measure.tool, measure.points, measure);
     const hiddenLabel = measure.hidden ? " (oculta)" : "";
     if (measure.tool === "annotation") lines.push((index + 1) + ". Anotacao" + hiddenLabel + ": " + (measure.text || ""));
+    else if (measure.tool === "fragment") lines.push((index + 1) + ". Fragmento" + hiddenLabel + ": rotacao " + (measure.rotation || 0).toFixed(1) + " graus");
     else lines.push((index + 1) + ". " + result.label + hiddenLabel + ": " + result.value.toFixed(1) + " " + result.unit);
     if (result.normal) lines.push("   Referencia: " + result.normal);
     if (result.note) lines.push("   Observacao: " + result.note);
@@ -475,6 +609,7 @@ document.getElementById("zoomOut").addEventListener("click", function() {
 });
 
 document.getElementById("fitBtn").addEventListener("click", fitImage);
+document.getElementById("finishFragmentBtn").addEventListener("click", finishFragment);
 
 lineThicknessInput.addEventListener("change", function() {
   lineThickness = Number(lineThicknessInput.value);

@@ -265,7 +265,15 @@ button, input, select, textarea { font: inherit; }
   margin-top: 10px;
 }
 
-.measure-actions button {
+.fragment-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.measure-actions button,
+.fragment-actions button {
   min-height: 30px;
   font-size: 12px;
 }

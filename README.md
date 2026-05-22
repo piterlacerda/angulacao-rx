@@ -50,6 +50,7 @@ A angulacao.drpiterlacerda.com.br -> 76.76.21.21
 - Escolher cor e espessura das linhas para reduzir confusao visual.
 - Adicionar anotacoes curtas sobre a radiografia.
 - Ocultar, travar ou apagar medidas individualmente.
+- Contornar fragmentos e simular rotacao em torno de um pivo.
 - Preencher painel MAP para organizar analise e planejamento.
 - Consultar guia rapido de como medir e para que serve cada medida principal.
 - Baixar as medidas em arquivo de texto legivel.
