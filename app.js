@@ -292,13 +292,22 @@ document.getElementById("clearBtn").addEventListener("click", function() {
 });
 
 document.getElementById("exportBtn").addEventListener("click", function() {
-  const payload = measurements.map(function(measure) {
-    return { id: measure.id, tool: measure.tool, points: measure.points, result: classifyMeasurement(measure.tool, measure.points) };
+  const lines = ["Angulacao RX - medidas", ""];
+  if (!measurements.length) {
+    lines.push("Nenhuma medida registrada.");
+  }
+  measurements.forEach(function(measure, index) {
+    const result = classifyMeasurement(measure.tool, measure.points);
+    lines.push((index + 1) + ". " + result.label + ": " + result.value.toFixed(1) + " " + result.unit);
+    if (result.normal) lines.push("   Referencia: " + result.normal);
+    if (result.note) lines.push("   Observacao: " + result.note);
   });
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  lines.push("");
+  lines.push("Ferramenta de apoio para medicao. Interpretacao final depende de revisao medica.");
+  const blob = new Blob([lines.join("\n")], { type: "text/plain" });
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
-  link.download = "medidas-angulacao-rx.json";
+  link.download = "medidas-angulacao-rx.txt";
   link.click();
   URL.revokeObjectURL(link.href);
 });
@@ -320,4 +329,3 @@ document.getElementById("fitBtn").addEventListener("click", fitImage);
 window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 setTool("select");
-

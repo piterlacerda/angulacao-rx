@@ -18,7 +18,7 @@ https://github.com/piterlacerda/angulacao-rx
 - Medir angulo entre duas linhas.
 - Medir eixo mecanico e desvio do eixo mecanico em relacao ao centro do joelho.
 - Medir mLDFA e MPTA por linhas de referencia.
-- Exportar as medidas em JSON.
+- Baixar as medidas em arquivo de texto legivel.
 
 ## Referencia tecnica inicial
 
