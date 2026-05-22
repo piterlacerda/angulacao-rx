@@ -57,6 +57,13 @@ A angulacao.drpiterlacerda.com.br -> 76.76.21.21
 - Consultar guia rapido de como medir e para que serve cada medida principal.
 - Baixar as medidas em arquivo de texto legivel.
 
+## Testes
+
+```bash
+node --check app.js
+node tests/measurement-calculations.test.js
+```
+
 ## Referencia tecnica inicial
 
 O livro do Paley e o guia publico do Bone Ninja foram usados como base de nomenclatura, estrutura de raciocinio e requisitos de fluxo, sem reproduzir texto, imagens ou tabelas protegidas.
