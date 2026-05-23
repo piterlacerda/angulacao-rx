@@ -53,6 +53,8 @@ A angulacao.drpiterlacerda.com.br -> 76.76.21.21
 - Contornar fragmentos e simular rotacao em torno de um pivo.
 - Usar zoom/mover para marcacao fina de pontos.
 - Salvar PNG limpo da area da radiografia com medidas e angulacoes.
+- Desenhar linhas independentes, mover uma linha inteira, ajustar pontas e apagar linha selecionada com Delete.
+- Mostrar os quatro angulos formados por duas linhas, cada um no seu quadrante ao redor do cruzamento.
 - Preencher painel MAP para organizar analise e planejamento.
 - Consultar guia rapido de como medir e para que serve cada medida principal.
 - Baixar as medidas em arquivo de texto legivel.

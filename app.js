@@ -21,6 +21,7 @@ const measurementGuides = {
   fragment: "Contorne um segmento osseo e use rotacao para simular correcao. Funcao educativa; nao substitui planejamento cirurgico validado.",
   pivot: "Define o ponto em torno do qual o fragmento mais recente sera rotacionado.",
   ruler: "Serve para distancias lineares e discrepancia. Com escala calibrada, o resultado aparece em milimetros.",
+  line: "Linha independente de 2 pontos. Selecione e arraste a linha inteira, ajuste as pontas ou pressione Delete para apagar.",
   angle3: "Use quando o angulo depende de um vertice anatomico claro. O segundo ponto e o vertice.",
   lineAngle: "Use para comparar duas linhas independentes, como eixo e linha articular.",
   mechanicalAxis: "Quantifica o desvio global do eixo mecanico no joelho. Primeiro passo do MAP.",
@@ -32,6 +33,7 @@ const toolSpecs = {
   select: { label: "Selecionar", points: 0, hint: "Arraste um ponto para ajustar a medida." },
   zoom: { label: "Zoom", points: 0, hint: "Clique para aproximar. Use Alt+clique para afastar." },
   pan: { label: "Mover", points: 0, hint: "Arraste a radiografia ampliada sem alterar os pontos." },
+  line: { label: "Linha", points: 2, hint: "Clique em 2 pontos para desenhar uma linha independente." },
   angle3: { label: "Angulo 3 pontos", points: 3, hint: "Marque A, vertice, B." },
   lineAngle: { label: "Angulo entre linhas", points: 4, hint: "Marque dois pontos da primeira linha e dois da segunda." },
   ruler: { label: "Regua", points: 2, hint: "Marque dois pontos para medir distancia." },
@@ -58,6 +60,8 @@ let lineThickness = Number(lineThicknessInput.value);
 let currentColor = "#66d9c4";
 let redoStack = [];
 let renderState = null;
+let draggingLine = null;
+let selectedLine = null;
 
 function activeCtx() {
   return renderState ? renderState.ctx : ctx;
@@ -134,6 +138,60 @@ function lineAngle(a, b, c, d) {
   return angle > 90 ? 180 - angle : angle;
 }
 
+function lineIntersection(a, b, c, d) {
+  const denominator = (a.x - b.x) * (c.y - d.y) - (a.y - b.y) * (c.x - d.x);
+  if (Math.abs(denominator) < 0.000001) return null;
+  const left = a.x * b.y - a.y * b.x;
+  const right = c.x * d.y - c.y * d.x;
+  return {
+    x: (left * (c.x - d.x) - (a.x - b.x) * right) / denominator,
+    y: (left * (c.y - d.y) - (a.y - b.y) * right) / denominator
+  };
+}
+
+function angleDiff(from, to) {
+  const full = Math.PI * 2;
+  return ((to - from) % full + full) % full;
+}
+
+function lineSegmentsForMeasurement(measure) {
+  if (measure.tool === "line" || measure.tool === "ruler" || measure.tool === "calibrate") {
+    return [{ key: "0", indexes: [0, 1], color: measure.color }];
+  }
+  if (measure.tool === "lineAngle") {
+    return [
+      { key: "0", indexes: [0, 1], color: measure.color },
+      { key: "1", indexes: [2, 3], color: measure.color || "#7aa7ff" }
+    ];
+  }
+  if (measure.tool === "mechanicalAxis") {
+    return [
+      { key: "0", indexes: [0, 2], color: measure.color || "#f2c14e" },
+      { key: "1", indexes: [1, 2], color: "#7aa7ff" }
+    ];
+  }
+  if (measure.tool === "ldfa" || measure.tool === "mpta") {
+    return [
+      { key: "0", indexes: [0, 1], color: measure.color },
+      { key: "1", indexes: [2, 3], color: "#7aa7ff" }
+    ];
+  }
+  return [];
+}
+
+function isSegmentDeleted(measure, segmentKey) {
+  return measure.deletedSegments && measure.deletedSegments.includes(segmentKey);
+}
+
+function visiblePointIndexes(measure) {
+  const hidden = new Set();
+  lineSegmentsForMeasurement(measure).forEach(function(segment) {
+    if (!isSegmentDeleted(measure, segment.key)) return;
+    segment.indexes.forEach(function(index) { hidden.add(index); });
+  });
+  return measure.points.map(function(_, index) { return index; }).filter(function(index) { return !hidden.has(index); });
+}
+
 function pointLineSignedDistance(point, a, b) {
   const numerator = (b.x - a.x) * (a.y - point.y) - (a.x - point.x) * (b.y - a.y);
   const denominator = distance(a, b);
@@ -158,6 +216,9 @@ function classifyMeasurement(tool, pts, measurement) {
     const result = lengthResult(distance(pts[0], pts[1]));
     return { label: "Distancia", value: result.value, unit: result.unit, note: result.note };
   }
+  if (tool === "line") {
+    return { label: "Linha", value: 0, unit: "", note: "Linha independente selecionavel, movel e apagavel." };
+  }
   if (tool === "annotation") {
     return { label: "Anotacao", value: 0, unit: "", note: measurement && measurement.text ? measurement.text : "Observacao" };
   }
@@ -168,14 +229,28 @@ function classifyMeasurement(tool, pts, measurement) {
     const a = pts[0], vertex = pts[1], b = pts[2];
     return { label: "Angulo 3 pontos", value: angleBetweenVectors({ x: a.x - vertex.x, y: a.y - vertex.y }, { x: b.x - vertex.x, y: b.y - vertex.y }), unit: "graus" };
   }
-  if (tool === "lineAngle") return { label: "Angulo entre linhas", value: lineAngle(pts[0], pts[1], pts[2], pts[3]), unit: "graus" };
+  if (tool === "lineAngle") {
+    if (measurement && (isSegmentDeleted(measurement, "0") || isSegmentDeleted(measurement, "1"))) {
+      return { label: "Angulo entre linhas", value: 0, unit: "graus", note: "Uma das linhas foi removida." };
+    }
+    return { label: "Angulo entre linhas", value: lineAngle(pts[0], pts[1], pts[2], pts[3]), unit: "graus" };
+  }
   if (tool === "mechanicalAxis") {
+    if (measurement && (isSegmentDeleted(measurement, "0") || isSegmentDeleted(measurement, "1"))) {
+      return { label: "MAD", value: 0, unit: "", note: "Uma das linhas foi removida." };
+    }
     const valuePx = pointLineSignedDistance(pts[1], pts[0], pts[2]);
     const result = lengthResult(valuePx);
     return { label: "MAD", value: result.value, unit: result.unit, note: result.note || "Sinal depende do lado marcado e deve ser interpretado clinicamente." };
   }
-  if (tool === "ldfa") return { label: "mLDFA", value: lineAngle(pts[0], pts[1], pts[2], pts[3]), unit: "graus", normal: "referencia usual: cerca de 87,5 +/- 2,5" };
-  if (tool === "mpta") return { label: "MPTA", value: lineAngle(pts[0], pts[1], pts[2], pts[3]), unit: "graus", normal: "referencia usual: cerca de 87 +/- 2,5" };
+  if (tool === "ldfa") {
+    if (measurement && (isSegmentDeleted(measurement, "0") || isSegmentDeleted(measurement, "1"))) return { label: "mLDFA", value: 0, unit: "", note: "Uma das linhas foi removida." };
+    return { label: "mLDFA", value: lineAngle(pts[0], pts[1], pts[2], pts[3]), unit: "graus", normal: "referencia usual: cerca de 87,5 +/- 2,5" };
+  }
+  if (tool === "mpta") {
+    if (measurement && (isSegmentDeleted(measurement, "0") || isSegmentDeleted(measurement, "1"))) return { label: "MPTA", value: 0, unit: "", note: "Uma das linhas foi removida." };
+    return { label: "MPTA", value: lineAngle(pts[0], pts[1], pts[2], pts[3]), unit: "graus", normal: "referencia usual: cerca de 87 +/- 2,5" };
+  }
   return { label: toolSpecs[tool].label, value: 0, unit: "" };
 }
 
@@ -217,6 +292,21 @@ function drawLine(a, b, color) {
   target.stroke();
 }
 
+function drawHighlightedLine(a, b, color) {
+  const target = activeCtx();
+  const p1 = imageToScreen(a);
+  const p2 = imageToScreen(b);
+  target.save();
+  target.beginPath();
+  target.moveTo(p1.x, p1.y);
+  target.lineTo(p2.x, p2.y);
+  target.lineWidth = (lineThickness + 6) * window.devicePixelRatio;
+  target.strokeStyle = "rgba(242, 244, 239, 0.28)";
+  target.stroke();
+  target.restore();
+  drawLine(a, b, color);
+}
+
 function drawText(point, value, color) {
   const target = activeCtx();
   const p = imageToScreen(point);
@@ -232,6 +322,45 @@ function drawText(point, value, color) {
   target.strokeRect(p.x, p.y - height, width, height);
   target.fillStyle = color || "#f2f4ef";
   target.fillText(value, p.x + padding, p.y - 8 * window.devicePixelRatio);
+}
+
+function drawAngleLabel(point, value, color) {
+  const target = activeCtx();
+  const p = imageToScreen(point);
+  const text = value.toFixed(1) + "°";
+  target.font = 12 * window.devicePixelRatio + "px sans-serif";
+  const padding = 5 * window.devicePixelRatio;
+  const width = target.measureText(text).width + padding * 2;
+  const height = 20 * window.devicePixelRatio;
+  target.fillStyle = "rgba(16, 20, 18, 0.86)";
+  target.fillRect(p.x - width / 2, p.y - height / 2, width, height);
+  target.strokeStyle = color || "#f2c14e";
+  target.lineWidth = 1 * window.devicePixelRatio;
+  target.strokeRect(p.x - width / 2, p.y - height / 2, width, height);
+  target.fillStyle = color || "#f2c14e";
+  target.fillText(text, p.x - width / 2 + padding, p.y + 4 * window.devicePixelRatio);
+}
+
+function drawFourLineAngles(a, b, c, d, color) {
+  const center = lineIntersection(a, b, c, d);
+  if (!center) return;
+  const rays = [
+    Math.atan2(a.y - center.y, a.x - center.x),
+    Math.atan2(b.y - center.y, b.x - center.x),
+    Math.atan2(c.y - center.y, c.x - center.x),
+    Math.atan2(d.y - center.y, d.x - center.x)
+  ].sort(function(left, right) { return left - right; });
+  const radius = 34 / activeScale();
+  rays.forEach(function(angle, index) {
+    const next = rays[(index + 1) % rays.length];
+    const gap = angleDiff(angle, next);
+    if (gap < 0.01) return;
+    const mid = angle + gap / 2;
+    drawAngleLabel({
+      x: center.x + Math.cos(mid) * radius,
+      y: center.y + Math.sin(mid) * radius
+    }, gap * 180 / Math.PI, color);
+  });
 }
 
 function drawPolygon(points, color) {
@@ -302,9 +431,22 @@ function drawMeasurement(measure) {
   if (measure.tool === "angle3") {
     drawLine(pts[1], pts[0], color);
     drawLine(pts[1], pts[2], color);
+  } else if (measure.tool === "line") {
+    const selected = selectedLine && selectedLine.measure === measure && selectedLine.segmentKey === "0";
+    if (selected) drawHighlightedLine(pts[0], pts[1], color);
+    else drawLine(pts[0], pts[1], color);
   } else if (measure.tool === "lineAngle") {
-    drawLine(pts[0], pts[1], color);
-    drawLine(pts[2], pts[3], color);
+    if (!isSegmentDeleted(measure, "0")) {
+      const selected = selectedLine && selectedLine.measure === measure && selectedLine.segmentKey === "0";
+      if (selected) drawHighlightedLine(pts[0], pts[1], color);
+      else drawLine(pts[0], pts[1], color);
+    }
+    if (!isSegmentDeleted(measure, "1")) {
+      const selected = selectedLine && selectedLine.measure === measure && selectedLine.segmentKey === "1";
+      if (selected) drawHighlightedLine(pts[2], pts[3], "#7aa7ff");
+      else drawLine(pts[2], pts[3], "#7aa7ff");
+    }
+    if (!isSegmentDeleted(measure, "0") && !isSegmentDeleted(measure, "1")) drawFourLineAngles(pts[0], pts[1], pts[2], pts[3], color);
   } else if (measure.tool === "ruler" || measure.tool === "calibrate") {
     drawLine(pts[0], pts[1], color);
   } else if (measure.tool === "annotation") {
@@ -315,13 +457,29 @@ function drawMeasurement(measure) {
     drawFragment(measure, color);
     return;
   } else if (measure.tool === "mechanicalAxis") {
-    drawLine(pts[0], pts[2], color);
-    drawLine(pts[1], pts[2], "#7aa7ff");
+    if (!isSegmentDeleted(measure, "0")) {
+      const selected = selectedLine && selectedLine.measure === measure && selectedLine.segmentKey === "0";
+      if (selected) drawHighlightedLine(pts[0], pts[2], color);
+      else drawLine(pts[0], pts[2], color);
+    }
+    if (!isSegmentDeleted(measure, "1")) {
+      const selected = selectedLine && selectedLine.measure === measure && selectedLine.segmentKey === "1";
+      if (selected) drawHighlightedLine(pts[1], pts[2], "#7aa7ff");
+      else drawLine(pts[1], pts[2], "#7aa7ff");
+    }
   } else if (measure.tool === "ldfa" || measure.tool === "mpta") {
-    drawLine(pts[0], pts[1], color);
-    drawLine(pts[2], pts[3], "#7aa7ff");
+    if (!isSegmentDeleted(measure, "0")) {
+      const selected = selectedLine && selectedLine.measure === measure && selectedLine.segmentKey === "0";
+      if (selected) drawHighlightedLine(pts[0], pts[1], color);
+      else drawLine(pts[0], pts[1], color);
+    }
+    if (!isSegmentDeleted(measure, "1")) {
+      const selected = selectedLine && selectedLine.measure === measure && selectedLine.segmentKey === "1";
+      if (selected) drawHighlightedLine(pts[2], pts[3], "#7aa7ff");
+      else drawLine(pts[2], pts[3], "#7aa7ff");
+    }
   }
-  pts.forEach(function(point, index) { drawPoint(point, String(index + 1), color); });
+  visiblePointIndexes(measure).forEach(function(index) { drawPoint(pts[index], String(index + 1), color); });
 }
 
 function draw() {
@@ -344,7 +502,7 @@ function renderMeasurements() {
     const article = document.createElement("article");
     article.className = "measure" + (measure.hidden ? " is-hidden" : "");
     const details = [result.normal, result.note, measurementGuides[measure.tool]].filter(Boolean).join(" | ") || "Medida criada manualmente sobre a imagem.";
-    const valueText = measure.tool === "annotation" ? "" : result.value.toFixed(1) + " " + result.unit;
+    const valueText = (measure.tool === "annotation" || measure.tool === "line") ? "" : result.value.toFixed(1) + " " + result.unit;
     const fragmentActions = measure.tool === "fragment" ? "<div class=\"fragment-actions\"><button data-action=\"rotateLeft\" data-id=\"" + measure.id + "\">-5</button><button data-action=\"rotateReset\" data-id=\"" + measure.id + "\">0</button><button data-action=\"rotateRight\" data-id=\"" + measure.id + "\">+5</button></div>" : "";
     article.innerHTML = "<header><strong>" + (index + 1) + ". " + result.label + "</strong><b>" + valueText + "</b></header><small>" + details + "</small><div class=\"measure-actions\"><button data-action=\"toggle\" data-id=\"" + measure.id + "\">" + (measure.hidden ? "Mostrar" : "Ocultar") + "</button><button data-action=\"lock\" data-id=\"" + measure.id + "\">" + (measure.locked ? "Destravar" : "Travar") + "</button><button data-action=\"delete\" data-id=\"" + measure.id + "\">Apagar</button></div>" + fragmentActions;
     measurementsEl.appendChild(article);
@@ -402,6 +560,7 @@ function finishMeasurement() {
   if (activeTool === "annotation") {
     measurement.text = annotationTextInput.value.trim() || "Observacao";
   }
+  selectedLine = null;
   measurements.push(measurement);
   recomputeCalibration();
   redoStack = [];
@@ -447,6 +606,34 @@ function nearestPoint(screenPoint) {
   return best;
 }
 
+function pointToSegmentDistance(point, a, b) {
+  const ab = { x: b.x - a.x, y: b.y - a.y };
+  const ap = { x: point.x - a.x, y: point.y - a.y };
+  const lengthSq = ab.x * ab.x + ab.y * ab.y;
+  if (!lengthSq) return distance(point, a);
+  const t = Math.max(0, Math.min(1, (ap.x * ab.x + ap.y * ab.y) / lengthSq));
+  return distance(point, { x: a.x + ab.x * t, y: a.y + ab.y * t });
+}
+
+function nearestLine(screenPoint) {
+  let best = null;
+  const imagePoint = screenToImage(screenPoint);
+  measurements.forEach(function(measure) {
+    if (measure.hidden || measure.locked || measure.tool === "calibrate") return;
+    lineSegmentsForMeasurement(measure).forEach(function(segment) {
+      if (isSegmentDeleted(measure, segment.key)) return;
+      const a = measure.points[segment.indexes[0]];
+      const b = measure.points[segment.indexes[1]];
+      if (!a || !b) return;
+      const d = pointToSegmentDistance(imagePoint, a, b) * scale;
+      if (d < 12 * window.devicePixelRatio && (!best || d < best.distance)) {
+        best = { measure: measure, segmentKey: segment.key, indexes: segment.indexes, distance: d };
+      }
+    });
+  });
+  return best;
+}
+
 function updateZoomLabel() {
   zoomLabel.textContent = Math.round(scale * 100) + "%";
 }
@@ -470,7 +657,21 @@ canvas.addEventListener("pointerdown", function(event) {
   }
   if (activeTool === "select") {
     const hit = nearestPoint(screenPoint);
-    draggingPoint = hit ? hit.point : null;
+    if (hit) {
+      draggingPoint = hit.point;
+      selectedLine = null;
+      return;
+    }
+    const lineHit = nearestLine(screenPoint);
+    selectedLine = lineHit;
+    if (lineHit) {
+      draggingLine = {
+        measure: lineHit.measure,
+        indexes: lineHit.indexes,
+        lastImagePoint: screenToImage(screenPoint)
+      };
+    }
+    draw();
     return;
   }
   if (!image) return;
@@ -507,6 +708,18 @@ canvas.addEventListener("pointermove", function(event) {
     draw();
     return;
   }
+  if (draggingLine) {
+    const current = screenToImage(screenPoint);
+    const delta = { x: current.x - draggingLine.lastImagePoint.x, y: current.y - draggingLine.lastImagePoint.y };
+    draggingLine.indexes.forEach(function(index) {
+      draggingLine.measure.points[index].x += delta.x;
+      draggingLine.measure.points[index].y += delta.y;
+    });
+    draggingLine.lastImagePoint = current;
+    renderMeasurements();
+    draw();
+    return;
+  }
   if (draggingPoint) {
     Object.assign(draggingPoint, screenToImage(screenPoint));
     recomputeCalibration();
@@ -517,8 +730,27 @@ canvas.addEventListener("pointermove", function(event) {
 
 canvas.addEventListener("pointerup", function() {
   draggingPoint = null;
+  draggingLine = null;
   isPanning = false;
   lastMouse = null;
+});
+
+window.addEventListener("keydown", function(event) {
+  if ((event.key !== "Delete" && event.key !== "Backspace") || !selectedLine) return;
+  const target = event.target;
+  if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+  event.preventDefault();
+  const measure = selectedLine.measure;
+  if (measure.tool === "line") {
+    measurements = measurements.filter(function(item) { return item !== measure; });
+  } else {
+    measure.deletedSegments = Array.from(new Set([].concat(measure.deletedSegments || [], selectedLine.segmentKey)));
+  }
+  selectedLine = null;
+  redoStack = [];
+  recomputeCalibration();
+  renderMeasurements();
+  draw();
 });
 
 canvas.addEventListener("wheel", function(event) {
@@ -590,6 +822,7 @@ document.getElementById("clearBtn").addEventListener("click", function() {
   pending = [];
   measurements = [];
   redoStack = [];
+  selectedLine = null;
   recomputeCalibration();
   renderMeasurements();
   updatePending();
@@ -606,6 +839,7 @@ measurementsEl.addEventListener("click", function(event) {
   if (button.dataset.action === "delete") {
     measurements = measurements.filter(function(item) { return item.id !== measure.id; });
     redoStack = [];
+    if (selectedLine && selectedLine.measure === measure) selectedLine = null;
   }
   if (button.dataset.action === "rotateLeft") measure.rotation = (measure.rotation || 0) - 5;
   if (button.dataset.action === "rotateRight") measure.rotation = (measure.rotation || 0) + 5;
@@ -625,6 +859,7 @@ document.getElementById("exportBtn").addEventListener("click", function() {
     const hiddenLabel = measure.hidden ? " (oculta)" : "";
     if (measure.tool === "annotation") lines.push((index + 1) + ". Anotacao" + hiddenLabel + ": " + (measure.text || ""));
     else if (measure.tool === "fragment") lines.push((index + 1) + ". Fragmento" + hiddenLabel + ": rotacao " + (measure.rotation || 0).toFixed(1) + " graus");
+    else if (measure.tool === "line") lines.push((index + 1) + ". Linha" + hiddenLabel);
     else lines.push((index + 1) + ". " + result.label + hiddenLabel + ": " + result.value.toFixed(1) + " " + result.unit);
     if (result.normal) lines.push("   Referencia: " + result.normal);
     if (result.note) lines.push("   Observacao: " + result.note);
