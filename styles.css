@@ -100,6 +100,21 @@ button, input, select, textarea { font: inherit; }
   font-size: 12px;
 }
 
+.line-controls strong {
+  font-size: 13px;
+}
+
+.line-control-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.line-control-grid button {
+  min-height: 32px;
+  font-size: 12px;
+}
+
 .control-section input,
 .control-section select,
 .map-panel input,

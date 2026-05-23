@@ -66,6 +66,19 @@
           <div id="calibrationStatus" class="scale-status">Escala nao calibrada.</div>
         </section>
 
+        <section class="control-section line-controls" aria-label="Ajuste fino da linha">
+          <strong>Ajuste da linha</strong>
+          <div id="lineControlStatus" class="scale-status">Selecione uma linha.</div>
+          <div class="line-control-grid">
+            <button data-line-move="axisBackward" title="Mover ao longo do eixo da linha">Eixo -</button>
+            <button data-line-move="axisForward" title="Mover ao longo do eixo da linha">Eixo +</button>
+            <button data-line-move="parallelBackward" title="Mover em paralelo">Paralelo -</button>
+            <button data-line-move="parallelForward" title="Mover em paralelo">Paralelo +</button>
+            <button data-line-move="rotateLeft" title="Girar 1 grau">Girar -1</button>
+            <button data-line-move="rotateRight" title="Girar 1 grau">Girar +1</button>
+          </div>
+        </section>
+
         <section class="tool-section compact" aria-label="Acoes">
           <button id="undoBtn">Desfazer</button>
           <button id="redoBtn">Refazer</button>

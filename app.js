@@ -10,6 +10,8 @@ const zoomLabel = document.getElementById("zoomLabel");
 const calibrationSizeInput = document.getElementById("calibrationSize");
 const calibrationStatus = document.getElementById("calibrationStatus");
 const lineThicknessInput = document.getElementById("lineThickness");
+const lineControlStatus = document.getElementById("lineControlStatus");
+const lineControlButtons = Array.from(document.querySelectorAll("[data-line-move]"));
 const colorSwatches = Array.from(document.querySelectorAll(".color-swatch"));
 const annotationTextInput = document.getElementById("annotationText");
 
@@ -181,6 +183,17 @@ function lineSegmentsForMeasurement(measure) {
 
 function isSegmentDeleted(measure, segmentKey) {
   return measure.deletedSegments && measure.deletedSegments.includes(segmentKey);
+}
+
+function setSelectedLine(line) {
+  selectedLine = line;
+  updateLineControls();
+}
+
+function updateLineControls() {
+  const enabled = Boolean(selectedLine);
+  if (lineControlStatus) lineControlStatus.textContent = enabled ? "Linha selecionada. Use os botoes para ajuste fino." : "Selecione uma linha.";
+  lineControlButtons.forEach(function(button) { button.disabled = !enabled; });
 }
 
 function visiblePointIndexes(measure) {
@@ -542,6 +555,7 @@ function updatePending() {
 function setTool(tool) {
   activeTool = tool;
   pending = [];
+  if (tool !== "select") setSelectedLine(null);
   document.querySelectorAll(".tool").forEach(function(button) {
     button.classList.toggle("is-active", button.dataset.tool === tool);
   });
@@ -560,7 +574,7 @@ function finishMeasurement() {
   if (activeTool === "annotation") {
     measurement.text = annotationTextInput.value.trim() || "Observacao";
   }
-  selectedLine = null;
+  setSelectedLine(null);
   measurements.push(measurement);
   recomputeCalibration();
   redoStack = [];
@@ -634,6 +648,55 @@ function nearestLine(screenPoint) {
   return best;
 }
 
+function selectedLinePoints() {
+  if (!selectedLine) return null;
+  const a = selectedLine.measure.points[selectedLine.indexes[0]];
+  const b = selectedLine.measure.points[selectedLine.indexes[1]];
+  if (!a || !b) return null;
+  return { a: a, b: b };
+}
+
+function moveSelectedLine(dx, dy) {
+  const points = selectedLinePoints();
+  if (!points) return;
+  points.a.x += dx;
+  points.a.y += dy;
+  points.b.x += dx;
+  points.b.y += dy;
+  renderMeasurements();
+  draw();
+}
+
+function rotateSelectedLine(degrees) {
+  const points = selectedLinePoints();
+  if (!points) return;
+  const center = { x: (points.a.x + points.b.x) / 2, y: (points.a.y + points.b.y) / 2 };
+  const nextA = rotatePoint(points.a, center, degrees);
+  const nextB = rotatePoint(points.b, center, degrees);
+  Object.assign(points.a, nextA);
+  Object.assign(points.b, nextB);
+  renderMeasurements();
+  draw();
+}
+
+function adjustSelectedLine(action) {
+  const points = selectedLinePoints();
+  if (!points) return;
+  const dx = points.b.x - points.a.x;
+  const dy = points.b.y - points.a.y;
+  const length = Math.hypot(dx, dy);
+  if (!length) return;
+  const step = Math.max(1 / activeScale(), 1);
+  const axis = { x: dx / length, y: dy / length };
+  const normal = { x: -axis.y, y: axis.x };
+  if (action === "axisBackward") moveSelectedLine(-axis.x * step, -axis.y * step);
+  if (action === "axisForward") moveSelectedLine(axis.x * step, axis.y * step);
+  if (action === "parallelBackward") moveSelectedLine(-normal.x * step, -normal.y * step);
+  if (action === "parallelForward") moveSelectedLine(normal.x * step, normal.y * step);
+  if (action === "rotateLeft") rotateSelectedLine(-1);
+  if (action === "rotateRight") rotateSelectedLine(1);
+}
+
 function updateZoomLabel() {
   zoomLabel.textContent = Math.round(scale * 100) + "%";
 }
@@ -659,11 +722,11 @@ canvas.addEventListener("pointerdown", function(event) {
     const hit = nearestPoint(screenPoint);
     if (hit) {
       draggingPoint = hit.point;
-      selectedLine = null;
+      setSelectedLine(null);
       return;
     }
     const lineHit = nearestLine(screenPoint);
-    selectedLine = lineHit;
+    setSelectedLine(lineHit);
     if (lineHit) {
       draggingLine = {
         measure: lineHit.measure,
@@ -736,9 +799,23 @@ canvas.addEventListener("pointerup", function() {
 });
 
 window.addEventListener("keydown", function(event) {
-  if ((event.key !== "Delete" && event.key !== "Backspace") || !selectedLine) return;
   const target = event.target;
   if (target && ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return;
+  if (!selectedLine) return;
+  const shortcuts = {
+    ArrowLeft: "axisBackward",
+    ArrowRight: "axisForward",
+    ArrowUp: "parallelBackward",
+    ArrowDown: "parallelForward",
+    "[": "rotateLeft",
+    "]": "rotateRight"
+  };
+  if (shortcuts[event.key]) {
+    event.preventDefault();
+    adjustSelectedLine(shortcuts[event.key]);
+    return;
+  }
+  if (event.key !== "Delete" && event.key !== "Backspace") return;
   event.preventDefault();
   const measure = selectedLine.measure;
   if (measure.tool === "line") {
@@ -746,7 +823,7 @@ window.addEventListener("keydown", function(event) {
   } else {
     measure.deletedSegments = Array.from(new Set([].concat(measure.deletedSegments || [], selectedLine.segmentKey)));
   }
-  selectedLine = null;
+  setSelectedLine(null);
   redoStack = [];
   recomputeCalibration();
   renderMeasurements();
@@ -822,7 +899,7 @@ document.getElementById("clearBtn").addEventListener("click", function() {
   pending = [];
   measurements = [];
   redoStack = [];
-  selectedLine = null;
+  setSelectedLine(null);
   recomputeCalibration();
   renderMeasurements();
   updatePending();
@@ -839,7 +916,7 @@ measurementsEl.addEventListener("click", function(event) {
   if (button.dataset.action === "delete") {
     measurements = measurements.filter(function(item) { return item.id !== measure.id; });
     redoStack = [];
-    if (selectedLine && selectedLine.measure === measure) selectedLine = null;
+    if (selectedLine && selectedLine.measure === measure) setSelectedLine(null);
   }
   if (button.dataset.action === "rotateLeft") measure.rotation = (measure.rotation || 0) - 5;
   if (button.dataset.action === "rotateRight") measure.rotation = (measure.rotation || 0) + 5;
@@ -914,6 +991,12 @@ document.getElementById("zoomOut").addEventListener("click", function() {
 document.getElementById("fitBtn").addEventListener("click", fitImage);
 document.getElementById("finishFragmentBtn").addEventListener("click", finishFragment);
 
+lineControlButtons.forEach(function(button) {
+  button.addEventListener("click", function() {
+    adjustSelectedLine(button.dataset.lineMove);
+  });
+});
+
 lineThicknessInput.addEventListener("change", function() {
   lineThickness = Number(lineThicknessInput.value);
   draw();
@@ -930,3 +1013,4 @@ window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 setTool("select");
 updateCalibrationStatus();
+updateLineControls();
