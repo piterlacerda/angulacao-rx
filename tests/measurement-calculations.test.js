@@ -25,11 +25,14 @@ vm.runInContext(
     "var calibration = { pixelsPerMm: null, markerMm: null };",
     "var measurementGuides = {};",
     "var toolSpecs = {};",
+    "var articularAngleMeta = { ldfa: { label: 'mLDFA (ângulo femoral distal lateral mecânico)', normal: 'referência usual: cerca de 87,5 +/- 2,5', guide: '' }, mpta: { label: 'MPTA (ângulo tibial proximal medial)', normal: 'referência usual: cerca de 87 +/- 2,5', guide: '' }, apdfa: { label: 'aPDFA (ângulo femoral distal posterior anatômico)', normal: 'referência usual: cerca de 83 +/- 4', guide: '' }, ppta: { label: 'PPTA (ângulo tibial proximal posterior)', normal: 'referência usual: cerca de 81 +/- 4', guide: '' }, adta: { label: 'ADTA (ângulo tibial distal anterior)', normal: 'referência usual: cerca de 80 +/- 3', guide: '' } };",
+    extractFunction("isArticularAngleTool"),
     extractFunction("distance"),
     extractFunction("polygonCentroid"),
     extractFunction("rotatePoint"),
     extractFunction("angleBetweenVectors"),
     extractFunction("lineAngle"),
+    extractFunction("lineIntersection"),
     extractFunction("pointLineSignedDistance"),
     extractFunction("pxToMm"),
     extractFunction("lengthResult"),
@@ -73,12 +76,50 @@ closeTo(
 );
 
 closeTo(
+  sandbox.classifyMeasurement("apdfa", [
+    { x: 0, y: 0 },
+    { x: 0, y: 100 },
+    { x: -50, y: 100 },
+    { x: 50, y: 100 }
+  ]).value,
+  90
+);
+
+assert.equal(
+  sandbox.classifyMeasurement("ppta", [
+    { x: 0, y: 0 },
+    { x: 0, y: 100 },
+    { x: -50, y: 0 },
+    { x: 50, y: 0 }
+  ]).label,
+  "PPTA (ângulo tibial proximal posterior)"
+);
+
+assert.equal(
   sandbox.classifyMeasurement("mechanicalAxis", [
     { x: 0, y: 0 },
-    { x: 10, y: 50 },
     { x: 0, y: 100 }
+  ]).label,
+  "Eixo mecânico"
+);
+
+closeTo(
+  sandbox.classifyMeasurement("mad", [
+    { x: 0, y: 0 },
+    { x: 0, y: 100 },
+    { x: 10, y: 50 }
   ]).value,
   10
+);
+
+closeTo(
+  sandbox.classifyMeasurement("cora", [
+    { x: 0, y: 0 },
+    { x: 0, y: 100 },
+    { x: -50, y: 50 },
+    { x: 50, y: 50 }
+  ]).value,
+  90
 );
 
 sandbox.calibration.pixelsPerMm = 2;

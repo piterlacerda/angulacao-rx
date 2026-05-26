@@ -3,15 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Angulacao RX</title>
+    <title>Angulação RX</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="app">
       <aside class="sidebar">
         <div class="brand">
-          <strong>Angulacao RX</strong>
-          <span>Planejamento ortopedico beta</span>
+          <strong>Angulação RX</strong>
+          <span>Planejamento ortopédico beta</span>
         </div>
 
         <label class="file-button">
@@ -21,22 +21,27 @@
 
         <section class="tool-section" aria-label="Ferramentas">
           <button class="tool is-active" data-tool="select" title="Selecionar e mover pontos">Selecionar</button>
-          <button class="tool" data-tool="zoom" title="Clique para aproximar; Alt+clique para afastar">Zoom</button>
+          <button class="tool" data-tool="zoom" title="Clique para aproximar; no tablet, use pinça com dois dedos">Zoom</button>
           <button class="tool" data-tool="pan" title="Arraste a radiografia sem alterar pontos">Mover</button>
           <button class="tool" data-tool="line" title="Desenhar uma linha independente com 2 pontos">Linha</button>
-          <button class="tool" data-tool="angle3" title="Marca 3 pontos: vertice no segundo ponto">Angulo 3 pontos</button>
-          <button class="tool" data-tool="lineAngle" title="Marca 4 pontos: duas linhas">Angulo entre linhas</button>
-          <button class="tool" data-tool="ruler" title="Marca 2 pontos para distancia">Regua</button>
+          <button class="tool" data-tool="angle3" title="Marca 3 pontos: vértice no segundo ponto">Ângulo 3 pontos</button>
+          <button class="tool" data-tool="lineAngle" title="Marca 4 pontos: duas linhas">Ângulo entre linhas</button>
+          <button class="tool" data-tool="ruler" title="Marca 2 pontos para distância">Régua</button>
           <button class="tool" data-tool="calibrate" title="Marca 2 pontos sobre o marcador de escala">Calibrar escala</button>
-          <button class="tool" data-tool="annotation" title="Adicionar texto na imagem">Anotacao</button>
-          <button class="tool" data-tool="fragment" title="Contorne um fragmento para simular correcao">Fragmento</button>
-          <button class="tool" data-tool="pivot" title="Definir pivo do ultimo fragmento">Pivo</button>
-          <button class="tool" data-tool="mechanicalAxis" title="Quadril, joelho, tornozelo">Eixo mecanico</button>
-          <button class="tool" data-tool="ldfa" title="Centro femoral, centro do joelho, dois pontos da linha distal femoral">mLDFA</button>
-          <button class="tool" data-tool="mpta" title="Centro do joelho, centro do tornozelo, dois pontos da linha tibial proximal">MPTA</button>
+          <button class="tool" data-tool="annotation" title="Adicionar texto na imagem">Anotação</button>
+          <button class="tool" data-tool="fragment" title="Contorne um fragmento para simular correção">Fragmento</button>
+          <button class="tool" data-tool="pivot" title="Definir pivô do último fragmento">Pivô</button>
+          <button class="tool" data-tool="mechanicalAxis" title="Centro da cabeça femoral e centro do tornozelo">Eixo mecânico</button>
+          <button class="tool" data-tool="mad" title="Desvio do eixo mecânico: centro femoral, centro do tornozelo e centro do joelho">MAD (desvio do eixo mecânico)</button>
+          <button class="tool" data-tool="cora" title="Centro de rotação da angulação: dois pontos do eixo proximal e dois pontos do eixo distal">CORA (centro de rotação da angulação)</button>
+          <button class="tool" data-tool="ldfa" title="Ângulo femoral distal lateral mecânico: centro femoral, centro do joelho, dois pontos da linha distal femoral">mLDFA (ângulo femoral distal lateral mecânico)</button>
+          <button class="tool" data-tool="mpta" title="Ângulo tibial proximal medial: centro do joelho, centro do tornozelo, dois pontos da linha tibial proximal">MPTA (ângulo tibial proximal medial)</button>
+          <button class="tool" data-tool="apdfa" title="Ângulo femoral distal posterior anatômico no perfil: eixo anatômico femoral e linha articular distal femoral">aPDFA (ângulo femoral distal posterior anatômico)</button>
+          <button class="tool" data-tool="ppta" title="Ângulo tibial proximal posterior no perfil: eixo anatômico tibial e linha articular proximal tibial">PPTA (ângulo tibial proximal posterior)</button>
+          <button class="tool" data-tool="adta" title="Ângulo tibial distal anterior no perfil: eixo anatômico tibial e linha articular distal tibial">ADTA (ângulo tibial distal anterior)</button>
         </section>
 
-        <section class="control-section" aria-label="Configuracoes">
+        <section class="control-section" aria-label="Configurações">
           <label>
             Marcador de escala
             <span><input id="calibrationSize" type="number" min="1" step="0.1" value="25.4" /> mm</span>
@@ -45,10 +50,40 @@
             Espessura da linha
             <select id="lineThickness">
               <option value="2">Fina</option>
-              <option value="4" selected>Media</option>
+              <option value="4" selected>Média</option>
               <option value="6">Grossa</option>
             </select>
           </label>
+          <label>
+            Dividir linha
+            <select id="lineDivisions">
+              <option value="1" selected>Sem divisão</option>
+              <option value="2">Metade</option>
+              <option value="3">Terços</option>
+              <option value="5">Quintos</option>
+            </select>
+          </label>
+          <label>
+            Linhas de eixo
+            <span><input id="extendLinesToggle" type="checkbox" checked /> estender</span>
+          </label>
+          <label>
+            Autoângulos
+            <span><input id="autoAnglesToggle" type="checkbox" checked /> mostrar</span>
+          </label>
+          <label>
+            Brilho
+            <input id="brightnessInput" type="range" min="50" max="180" step="5" value="100" />
+          </label>
+          <label>
+            Contraste
+            <input id="contrastInput" type="range" min="50" max="200" step="5" value="100" />
+          </label>
+          <label>
+            Imagem
+            <span><input id="invertImageToggle" type="checkbox" /> inverter</span>
+          </label>
+          <button id="resetImageBtn" type="button">Resetar imagem</button>
           <label>
             Cor da linha
             <div class="color-row">
@@ -60,10 +95,10 @@
             </div>
           </label>
           <label>
-            Texto da anotacao
-            <input id="annotationText" value="Observacao" maxlength="80" />
+            Texto da anotação
+            <input id="annotationText" value="Observação" maxlength="80" />
           </label>
-          <div id="calibrationStatus" class="scale-status">Escala nao calibrada.</div>
+          <div id="calibrationStatus" class="scale-status">Escala não calibrada.</div>
         </section>
 
         <section class="control-section line-controls" aria-label="Ajuste fino da linha">
@@ -77,9 +112,17 @@
             <button data-line-move="rotateLeft" title="Girar 1 grau">Girar -1</button>
             <button data-line-move="rotateRight" title="Girar 1 grau">Girar +1</button>
           </div>
+          <label>
+            Passo do movimento
+            <span><input id="nudgeStep" type="number" min="0.1" step="0.1" value="1" /> px</span>
+          </label>
+          <label>
+            Passo da rotação
+            <span><input id="rotationStep" type="number" min="0.1" step="0.1" value="1" /> grau</span>
+          </label>
         </section>
 
-        <section class="tool-section compact" aria-label="Acoes">
+        <section class="tool-section compact" aria-label="Ações">
           <button id="undoBtn">Desfazer</button>
           <button id="redoBtn">Refazer</button>
           <button id="finishFragmentBtn">Fechar fragmento</button>
@@ -117,36 +160,78 @@
         <div id="pendingPoints" class="pending">Nenhum ponto pendente.</div>
         <div id="measurements" class="measurements"></div>
         <section class="map-panel" aria-label="Planejamento MAP">
-          <h2>MAP</h2>
+          <h2>MAP (planejamento pelo eixo mecânico)</h2>
           <div class="guide-note">
-            Sequencia sugerida: calibre a escala, meca o MAD, analise os angulos articulares e so depois escolha o nivel da deformidade.
+            Sequência sugerida: calibre a escala, trace o eixo mecânico, meça o MAD (desvio do eixo mecânico), analise os ângulos articulares, localize o CORA (centro de rotação da angulação) e só depois defina osteotomia/correção.
           </div>
-          <label>MAD <input data-plan="mad" placeholder="ex.: 12 mm medial" /></label>
-          <label>Angulos articulares <textarea data-plan="angles" rows="3" placeholder="mLDFA, MPTA, LDTA..."></textarea></label>
-          <label>Osso/nível provável <input data-plan="bone" placeholder="ex.: tibia proximal" /></label>
+          <ol class="workflow-list">
+            <li>Calibrar escala</li>
+            <li>Eixo mecânico e MAD (desvio do eixo mecânico)</li>
+            <li>mLDFA (ângulo femoral distal lateral mecânico) / MPTA (ângulo tibial proximal medial)</li>
+            <li>CORA (centro de rotação da angulação) e nível da deformidade</li>
+            <li>Fragmento, pivô e simulação</li>
+          </ol>
+          <label>MAD (desvio do eixo mecânico) <input data-plan="mad" placeholder="ex.: 12 mm medial" /></label>
+          <label>Ângulos articulares <textarea data-plan="angles" rows="3" placeholder="mLDFA, MPTA, LDTA, aPDFA, PPTA, ADTA..."></textarea></label>
+          <label>Osso/nível provável <input data-plan="bone" placeholder="ex.: tíbia proximal" /></label>
           <label>Apex / corte / correção <textarea data-plan="abc" rows="3" placeholder="Apex, osteotomia, tipo de correção"></textarea></label>
         </section>
         <section class="angle-guide" aria-label="Guia de medidas">
-          <h2>Guia rapido</h2>
+          <h2>Guia rápido</h2>
           <details open>
-            <summary>MAD</summary>
-            <p>Trace o eixo mecanico do centro da cabeca femoral ao centro do tornozelo e observe onde ele cruza o joelho. Serve para quantificar desvio global em varo/valgo.</p>
+            <summary>MAD (desvio do eixo mecânico)</summary>
+            <p>Trace o eixo mecânico com dois pontos e marque o centro do joelho para medir a distância perpendicular até esse eixo.</p>
           </details>
           <details>
-            <summary>mLDFA</summary>
-            <p>Use o eixo mecanico do femur e a linha articular distal femoral. Ajuda a separar deformidade femoral distal de deformidade tibial.</p>
+            <summary>CORA (centro de rotação da angulação)</summary>
+            <p>Marque o eixo do segmento proximal e o eixo do segmento distal. A interseção entre eles orienta o centro de rotação da deformidade.</p>
           </details>
           <details>
-            <summary>MPTA</summary>
-            <p>Use o eixo mecanico da tibia e a linha articular proximal da tibia. Ajuda a identificar deformidade da tibia proximal no plano frontal.</p>
+            <summary>mLDFA (ângulo femoral distal lateral mecânico)</summary>
+            <p>Use o eixo mecânico do fêmur e a linha articular distal femoral. Ajuda a separar deformidade femoral distal de deformidade tibial.</p>
           </details>
           <details>
-            <summary>Regua</summary>
-            <p>Depois da calibracao, use para discrepancia de comprimento ou distancias auxiliares. Sem calibracao, o resultado fica em pixels.</p>
+            <summary>MPTA (ângulo tibial proximal medial)</summary>
+            <p>Use o eixo mecânico da tíbia e a linha articular proximal da tíbia. Ajuda a identificar deformidade da tíbia proximal no plano frontal.</p>
+          </details>
+          <details>
+            <summary>Perfil / lateral</summary>
+            <p>Use a radiografia em perfil para avaliar recurvatum/procurvatum e inclinação sagital das articulações. As referências principais são aPDFA (ângulo femoral distal posterior anatômico), PPTA (ângulo tibial proximal posterior) e ADTA (ângulo tibial distal anterior).</p>
+          </details>
+          <details>
+            <summary>Régua</summary>
+            <p>Depois da calibração, use para discrepância de comprimento ou distâncias auxiliares. Sem calibração, o resultado fica em pixels.</p>
           </details>
         </section>
+        <section class="reference-panel" aria-label="Referências de angulação">
+          <div class="reference-heading">
+            <h2>Referências</h2>
+            <div class="reference-tabs" role="tablist" aria-label="Planos radiográficos">
+              <button class="reference-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="reference-ap" data-reference-tab="ap">AP</button>
+              <button class="reference-tab" type="button" role="tab" aria-selected="false" aria-controls="reference-lateral" data-reference-tab="lateral">Perfil</button>
+            </div>
+          </div>
+          <article class="reference-content is-active" id="reference-ap" role="tabpanel">
+            <ul class="reference-list">
+              <li><b>mLDFA</b> (ângulo femoral distal lateral mecânico): ~87,5° ± 2,5°.</li>
+              <li><b>MPTA</b> (ângulo tibial proximal medial): ~87° ± 2,5°.</li>
+              <li><b>LDTA</b> (ângulo tibial distal lateral): ~89° ± 3°.</li>
+              <li><b>JLCA</b> (ângulo de convergência articular): idealmente próximo de 0° a 2°.</li>
+            </ul>
+            <p class="reference-source">Valores orientativos adaptados das referências de Paley em <i>Principles of Deformity Correction</i>.</p>
+          </article>
+          <article class="reference-content" id="reference-lateral" role="tabpanel" hidden>
+            <ul class="reference-list">
+              <li><b>aPDFA</b> (ângulo femoral distal posterior anatômico): ~83° ± 4°.</li>
+              <li><b>PPTA</b> (ângulo tibial proximal posterior): ~81° ± 4°.</li>
+              <li><b>ADTA</b> (ângulo tibial distal anterior): ~80° ± 3°.</li>
+              <li>Use estas medidas para analisar deformidade no plano sagital: recurvatum, procurvatum e inclinação articular.</li>
+            </ul>
+            <p class="reference-source">Valores orientativos adaptados das referências de Paley em <i>Principles of Deformity Correction</i>. Confirmar conforme idade, qualidade da radiografia e contexto clínico.</p>
+          </article>
+        </section>
         <div class="clinical-note">
-          As imagens ficam no navegador. Ferramenta de apoio para medicao; a interpretacao final depende de revisao medica.
+          As imagens ficam no navegador. Ferramenta de apoio para medição; a interpretação final depende de revisão médica.
         </div>
       </aside>
     </main>
