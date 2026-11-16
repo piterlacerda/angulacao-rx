@@ -153,6 +153,13 @@ button, input, select, textarea { font: inherit; }
   gap: 6px;
 }
 
+/* Swatches are stylesheet rules so inline styles can stay blocked by CSP. */
+.color-swatch[data-color="#66d9c4"] { --swatch: #66d9c4; }
+.color-swatch[data-color="#f2c14e"] { --swatch: #f2c14e; }
+.color-swatch[data-color="#7aa7ff"] { --swatch: #7aa7ff; }
+.color-swatch[data-color="#ef6f6c"] { --swatch: #ef6f6c; }
+.color-swatch[data-color="#f2f4ef"] { --swatch: #f2f4ef; }
+
 .color-swatch {
   min-height: 30px;
   border-radius: 6px;

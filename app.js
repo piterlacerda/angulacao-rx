@@ -825,23 +825,64 @@ function draw() {
   pending.forEach(function(point, index) { drawPoint(point, String(index + 1), "#ef6f6c"); });
 }
 
+function measurementActionButton(action, measure, label, segmentKey) {
+  const button = document.createElement("button");
+  button.dataset.action = action;
+  button.dataset.id = measure.id;
+  if (segmentKey !== undefined) button.dataset.segment = segmentKey;
+  button.textContent = label;
+  return button;
+}
+
 function renderMeasurements() {
-  measurementsEl.innerHTML = "";
+  measurementsEl.replaceChildren();
   measurements.forEach(function(measure, index) {
     const result = classifyMeasurement(measure.tool, measure.points, measure);
     const article = document.createElement("article");
     article.className = "measure" + (measure.hidden ? " is-hidden" : "") + ((selectedLine && selectedLine.measure === measure) || selectedFragment === measure ? " is-selected" : "");
     const details = [result.normal, result.note, measurementGuides[measure.tool]].filter(Boolean).join(" | ") || "Medida criada manualmente sobre a imagem.";
     const valueText = measure.tool === "annotation" ? "" : result.value.toFixed(1) + " " + result.unit;
-    const fragmentActions = measure.tool === "fragment" ? "<div class=\"fragment-actions\"><button data-action=\"rotateLeft\" data-id=\"" + measure.id + "\">-1</button><button data-action=\"rotateReset\" data-id=\"" + measure.id + "\">0</button><button data-action=\"rotateRight\" data-id=\"" + measure.id + "\">+1</button></div>" : "";
-    const segmentActions = lineSegmentsForMeasurement(measure).filter(function(segment) {
+    const header = document.createElement("header");
+    const title = document.createElement("strong");
+    title.textContent = (index + 1) + ". " + result.label;
+    const value = document.createElement("b");
+    value.textContent = valueText;
+    header.append(title, value);
+    const description = document.createElement("small");
+    // Annotation text is untrusted plain text, never HTML (also without CSP).
+    description.textContent = details;
+    article.append(header, description);
+
+    const segments = lineSegmentsForMeasurement(measure).filter(function(segment) {
       return !isSegmentDeleted(measure, segment.key);
-    }).map(function(segment) {
-      const selected = selectedLine && selectedLine.measure === measure && selectedLine.segmentKey === segment.key;
-      return "<button data-action=\"selectLine\" data-id=\"" + measure.id + "\" data-segment=\"" + segment.key + "\">" + (selected ? "Selecionada: " : "Selecionar ") + segmentName(measure, segment.key) + "</button>";
-    }).join("");
-    const segmentBlock = segmentActions ? "<div class=\"segment-actions\">" + segmentActions + "</div>" : "";
-    article.innerHTML = "<header><strong>" + (index + 1) + ". " + result.label + "</strong><b>" + valueText + "</b></header><small>" + details + "</small>" + segmentBlock + "<div class=\"measure-actions\"><button data-action=\"toggle\" data-id=\"" + measure.id + "\">" + (measure.hidden ? "Mostrar" : "Ocultar") + "</button><button data-action=\"lock\" data-id=\"" + measure.id + "\">" + (measure.locked ? "Destravar" : "Travar") + "</button><button data-action=\"delete\" data-id=\"" + measure.id + "\">Apagar</button></div>" + fragmentActions;
+    });
+    if (segments.length) {
+      const segmentActions = document.createElement("div");
+      segmentActions.className = "segment-actions";
+      segments.forEach(function(segment) {
+        const selected = selectedLine && selectedLine.measure === measure && selectedLine.segmentKey === segment.key;
+        segmentActions.appendChild(measurementActionButton("selectLine", measure, (selected ? "Selecionada: " : "Selecionar ") + segmentName(measure, segment.key), segment.key));
+      });
+      article.appendChild(segmentActions);
+    }
+    const actions = document.createElement("div");
+    actions.className = "measure-actions";
+    actions.append(
+      measurementActionButton("toggle", measure, measure.hidden ? "Mostrar" : "Ocultar"),
+      measurementActionButton("lock", measure, measure.locked ? "Destravar" : "Travar"),
+      measurementActionButton("delete", measure, "Apagar")
+    );
+    article.appendChild(actions);
+    if (measure.tool === "fragment") {
+      const fragmentActions = document.createElement("div");
+      fragmentActions.className = "fragment-actions";
+      fragmentActions.append(
+        measurementActionButton("rotateLeft", measure, "-1"),
+        measurementActionButton("rotateReset", measure, "0"),
+        measurementActionButton("rotateRight", measure, "+1")
+      );
+      article.appendChild(fragmentActions);
+    }
     measurementsEl.appendChild(article);
   });
 }
